@@ -4,7 +4,7 @@ use std::sync::Arc;
 use uuid::Uuid;
 use chrono::Utc;
 use theasus_core::engine::QueryEngine;
-use theasus_language_model::{Message as LlmMessage, ContentBlock as LlmContentBlock};
+use theasus_language_model::{Message as LlmMessage, ContentBlock as LlmContentBlock, ToolDefinition};
 
 use crate::LlmManager;
 
@@ -16,6 +16,7 @@ pub struct App {
     pub command_registry: Arc<theasus_commands::CommandRegistry>,
     pub llm_manager: crate::LlmManager,
     pub query_engine: QueryEngine,
+    pub max_tool_iterations: usize,
 }
 
 fn convert_to_llm_message(msg: &theasus_core::Message) -> LlmMessage {
@@ -74,7 +75,7 @@ impl App {
             model: llm_manager.settings.model.clone(),
             max_tokens: Some(4096),
             temperature: 0.7,
-            system_prompt: Some("You are Bodhi, an AI terminal assistant.".to_string()),
+            system_prompt: Some("You are Bodhi, an AI terminal assistant. You have access to tools to help you answer questions. When you need to use a tool, respond with a tool use block.".to_string()),
         };
         
         let query_engine = theasus_core::QueryEngine::new(config);
@@ -87,6 +88,135 @@ impl App {
             command_registry: Arc::new(theasus_commands::CommandRegistry::new()),
             llm_manager,
             query_engine,
+            max_tool_iterations: 5,
+        }
+    }
+
+    fn get_tool_definitions(&self) -> Vec<ToolDefinition> {
+        let mut tools = Vec::new();
+        
+        if let Some(tool) = self.tool_registry.get("bash") {
+            tools.push(ToolDefinition {
+                name: "bash".to_string(),
+                description: "Execute shell commands and return the output".to_string(),
+                input_schema: serde_json::json!({
+                    "type": "object",
+                    "properties": {
+                        "command": {
+                            "type": "string",
+                            "description": "The command to execute"
+                        }
+                    },
+                    "required": ["command"]
+                }),
+            });
+        }
+        
+        if let Some(tool) = self.tool_registry.get("file_read") {
+            tools.push(ToolDefinition {
+                name: "file_read".to_string(),
+                description: "Read files and directories".to_string(),
+                input_schema: serde_json::json!({
+                    "type": "object",
+                    "properties": {
+                        "path": {
+                            "type": "string",
+                            "description": "The file or directory path to read"
+                        }
+                    },
+                    "required": ["path"]
+                }),
+            });
+        }
+        
+        if let Some(tool) = self.tool_registry.get("file_write") {
+            tools.push(ToolDefinition {
+                name: "file_write".to_string(),
+                description: "Create or overwrite files with content".to_string(),
+                input_schema: serde_json::json!({
+                    "type": "object",
+                    "properties": {
+                        "path": {
+                            "type": "string",
+                            "description": "The file path to write"
+                        },
+                        "content": {
+                            "type": "string",
+                            "description": "The content to write"
+                        }
+                    },
+                    "required": ["path", "content"]
+                }),
+            });
+        }
+        
+        if let Some(tool) = self.tool_registry.get("grep") {
+            tools.push(ToolDefinition {
+                name: "grep".to_string(),
+                description: "Search for patterns in files".to_string(),
+                input_schema: serde_json::json!({
+                    "type": "object",
+                    "properties": {
+                        "pattern": {
+                            "type": "string",
+                            "description": "The regex pattern to search for"
+                        },
+                        "path": {
+                            "type": "string",
+                            "description": "The directory or file to search in"
+                        }
+                    },
+                    "required": ["pattern"]
+                }),
+            });
+        }
+        
+        if let Some(tool) = self.tool_registry.get("glob") {
+            tools.push(ToolDefinition {
+                name: "glob".to_string(),
+                description: "Find files matching a glob pattern".to_string(),
+                input_schema: serde_json::json!({
+                    "type": "object",
+                    "properties": {
+                        "pattern": {
+                            "type": "string",
+                            "description": "The glob pattern (e.g., **/*.rs)"
+                        },
+                        "path": {
+                            "type": "string",
+                            "description": "The directory to search in"
+                        }
+                    },
+                    "required": ["pattern"]
+                }),
+            });
+        }
+        
+        tools
+    }
+
+    fn execute_tool(&self, name: &str, input: serde_json::Value, rt: &tokio::runtime::Runtime) -> String {
+        let context = theasus_tools::ToolContext {
+            cwd: self.cwd.clone(),
+            session_id: self.session_id,
+            user_id: None,
+        };
+        
+        if let Some(tool) = self.tool_registry.get(name) {
+            let result = rt.block_on(tool.execute(input, &context));
+            
+            match result {
+                Ok(result) => {
+                    if result.success {
+                        result.output
+                    } else {
+                        result.error.unwrap_or_else(|| "Tool execution failed".to_string())
+                    }
+                }
+                Err(e) => e.to_string(),
+            }
+        } else {
+            format!("Tool '{}' not found", name)
         }
     }
 
@@ -163,59 +293,65 @@ impl App {
         
         self.query_engine.add_user_message(input);
         
-        if let Some(client) = &self.llm_manager.client {
-            let llm_messages: Vec<LlmMessage> = self.query_engine.get_messages()
-                .iter()
-                .map(convert_to_llm_message)
-                .collect();
+        if let Some(_client) = &self.llm_manager.client {
+            let mut iteration = 0;
             
-            let client = self.llm_manager.client.clone();
-            let model = self.llm_manager.settings.model.clone();
-            let messages = llm_messages;
-            
-            let result = rt.block_on(async move {
-                if let Some(c) = client {
-                    c.complete(theasus_language_model::CompletionRequest {
-                        model,
-                        messages,
-                        max_tokens: Some(4096),
-                        temperature: Some(0.7),
-                        system: Some("You are Bodhi, an AI terminal assistant.".to_string()),
-                        tools: None,
-                        stream: false,
-                    }).await
-                } else {
-                    Err(anyhow::anyhow!("No client"))
-                }
-            });
-            
-            match result {
-                Ok(response) => {
-                    let text = match response.message {
-                        theasus_language_model::Message::Assistant(msg) => {
-                            msg.content.iter()
-                                .filter_map(|block| {
+            while iteration < self.max_tool_iterations {
+                let llm_messages: Vec<LlmMessage> = self.query_engine.get_messages()
+                    .iter()
+                    .map(convert_to_llm_message)
+                    .collect();
+                
+                let tools = self.get_tool_definitions();
+                
+                let client = self.llm_manager.client.clone();
+                let model = self.llm_manager.settings.model.clone();
+                let messages = llm_messages;
+                
+                let result = rt.block_on(async move {
+                    if let Some(c) = client {
+                        c.complete(theasus_language_model::CompletionRequest {
+                            model,
+                            messages,
+                            max_tokens: Some(4096),
+                            temperature: Some(0.7),
+                            system: Some("You are Bodhi, an AI terminal assistant. You have access to tools to help you answer questions. When you need to use a tool, respond with a tool use block.".to_string()),
+                            tools: if tools.is_empty() { None } else { Some(tools.clone()) },
+                            stream: false,
+                        }).await
+                    } else {
+                        Err(anyhow::anyhow!("No client"))
+                    }
+                });
+                
+                match result {
+                    Ok(response) => {
+                        let text = match response.message {
+                            theasus_language_model::Message::Assistant(msg) => {
+                                let mut content = String::new();
+                                for block in &msg.content {
                                     if let theasus_language_model::ContentBlock::Text { text } = block {
-                                        Some(text.clone())
-                                    } else {
-                                        None
+                                        content.push_str(text);
                                     }
-                                })
-                                .collect::<Vec<_>>()
-                                .join("\n")
-                        }
-                        _ => String::new(),
-                    };
-                    
-                    println!("{}", text);
-                    
-                    self.query_engine.add_assistant_message(&text);
-                    
-                    println!("\n[Tokens: {}]", response.usage.total_tokens);
+                                }
+                                content
+                            }
+                            _ => String::new(),
+                        };
+                        
+                        println!("{}", text);
+                        self.query_engine.add_assistant_message(&text);
+                        println!("\n[Tokens: {}]", response.usage.total_tokens);
+                        
+                        break;
+                    }
+                    Err(e) => {
+                        eprintln!("Error: {}", e);
+                        break;
+                    }
                 }
-                Err(e) => {
-                    eprintln!("Error: {}", e);
-                }
+                
+                iteration += 1;
             }
         } else {
             println!("LLM not configured. Run: bodhi config-llm --provider openai --api-key YOUR_KEY --model gpt-4o");
