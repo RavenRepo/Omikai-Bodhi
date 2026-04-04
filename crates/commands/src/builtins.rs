@@ -428,3 +428,221 @@ impl Default for AgentsCommand {
         Self::new()
     }
 }
+
+pub struct ConfigCommand;
+
+impl ConfigCommand {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl fmt::Debug for ConfigCommand {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ConfigCommand").finish()
+    }
+}
+
+impl Clone for ConfigCommand {
+    fn clone(&self) -> Self {
+        Self
+    }
+}
+
+#[async_trait]
+impl Command for ConfigCommand {
+    fn name(&self) -> &str {
+        "config"
+    }
+
+    fn aliases(&self) -> &[&str] {
+        &["cfg"]
+    }
+
+    fn description(&self) -> &str {
+        "Show or update configuration"
+    }
+
+    fn args_description(&self) -> Option<&str> {
+        Some("[key] [value]")
+    }
+
+    async fn execute(
+        &self,
+        args: &str,
+        _context: &CommandContext,
+    ) -> theasus_core::Result<CommandResult> {
+        let settings = theasus_settings::Settings::load().unwrap_or_default();
+        
+        if args.is_empty() {
+            let output = format!(r#"Current Configuration:
+  model:          {}
+  provider:       {}
+  theme:          {:?}
+  max_budget:    {:?}
+  permission:     {:?}
+"#,
+                settings.model,
+                settings.llm_provider,
+                settings.theme,
+                settings.max_budget_usd,
+                settings.permission_mode
+            );
+            Ok(CommandResult::success(output))
+        } else {
+            Ok(CommandResult::success("Config updating not yet implemented"))
+        }
+    }
+}
+
+impl Default for ConfigCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+pub struct EnvCommand;
+
+impl EnvCommand {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl fmt::Debug for EnvCommand {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("EnvCommand").finish()
+    }
+}
+
+impl Clone for EnvCommand {
+    fn clone(&self) -> Self {
+        Self
+    }
+}
+
+#[async_trait]
+impl Command for EnvCommand {
+    fn name(&self) -> &str {
+        "env"
+    }
+
+    fn description(&self) -> &str {
+        "Show environment variables"
+    }
+
+    async fn execute(
+        &self,
+        _args: &str,
+        _context: &CommandContext,
+    ) -> theasus_core::Result<CommandResult> {
+        let output = r#"Environment Variables:
+  OPENAI_API_KEY      - OpenAI API key
+  ANTHROPIC_API_KEY   - Anthropic API key
+  OLLAMA_BASE_URL     - Ollama endpoint (default: http://localhost:11434)
+  BODHI_CONFIG_PATH   - Custom config file path
+  RUST_LOG           - Logging level (debug, info, warn, error)
+"#.to_string();
+        Ok(CommandResult::success(output))
+    }
+}
+
+impl Default for EnvCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+pub struct PwdCommand;
+
+impl PwdCommand {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl fmt::Debug for PwdCommand {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("PwdCommand").finish()
+    }
+}
+
+impl Clone for PwdCommand {
+    fn clone(&self) -> Self {
+        Self
+    }
+}
+
+#[async_trait]
+impl Command for PwdCommand {
+    fn name(&self) -> &str {
+        "pwd"
+    }
+
+    fn description(&self) -> &str {
+        "Print working directory"
+    }
+
+    async fn execute(
+        &self,
+        _args: &str,
+        context: &CommandContext,
+    ) -> theasus_core::Result<CommandResult> {
+        Ok(CommandResult::success(context.cwd.to_string_lossy().to_string()))
+    }
+}
+
+impl Default for PwdCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+pub struct HistoryCommand;
+
+impl HistoryCommand {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl fmt::Debug for HistoryCommand {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("HistoryCommand").finish()
+    }
+}
+
+impl Clone for HistoryCommand {
+    fn clone(&self) -> Self {
+        Self
+    }
+}
+
+#[async_trait]
+impl Command for HistoryCommand {
+    fn name(&self) -> &str {
+        "history"
+    }
+
+    fn aliases(&self) -> &[&str] {
+        &["hist"]
+    }
+
+    fn description(&self) -> &str {
+        "Show command history"
+    }
+
+    async fn execute(
+        &self,
+        _args: &str,
+        _context: &CommandContext,
+    ) -> theasus_core::Result<CommandResult> {
+        Ok(CommandResult::success("History feature coming soon"))
+    }
+}
+
+impl Default for HistoryCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
