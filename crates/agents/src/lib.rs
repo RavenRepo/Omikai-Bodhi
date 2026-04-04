@@ -49,12 +49,8 @@ pub struct AgentContext {
 #[async_trait]
 pub trait Agent: Send + Sync {
     fn definition(&self) -> AgentDefinition;
-    
-    async fn execute(
-        &self,
-        query: &str,
-        context: &AgentContext,
-    ) -> Result<AgentResult>;
+
+    async fn execute(&self, query: &str, context: &AgentContext) -> Result<AgentResult>;
 }
 
 pub struct AgentRegistry {
@@ -77,7 +73,8 @@ impl AgentRegistry {
     }
 
     pub fn register<A: Agent + 'static>(&mut self, agent: A) {
-        self.agents.insert(agent.definition().name.clone(), Arc::new(agent));
+        self.agents
+            .insert(agent.definition().name.clone(), Arc::new(agent));
     }
 
     pub fn get(&self, name: &str) -> Option<Arc<dyn Agent>> {
@@ -113,11 +110,7 @@ impl Agent for GeneralPurposeAgent {
         }
     }
 
-    async fn execute(
-        &self,
-        query: &str,
-        context: &AgentContext,
-    ) -> Result<AgentResult> {
+    async fn execute(&self, query: &str, context: &AgentContext) -> Result<AgentResult> {
         tracing::info!("GeneralPurposeAgent executing query: {}", query);
         Ok(AgentResult::success(format!("Processed query: {}", query)))
     }
@@ -147,11 +140,7 @@ impl Agent for ExploreAgent {
         }
     }
 
-    async fn execute(
-        &self,
-        query: &str,
-        context: &AgentContext,
-    ) -> Result<AgentResult> {
+    async fn execute(&self, query: &str, context: &AgentContext) -> Result<AgentResult> {
         tracing::info!("ExploreAgent exploring: {}", query);
         Ok(AgentResult::success(format!("Explored: {}", query)))
     }
@@ -181,11 +170,7 @@ impl Agent for PlanAgent {
         }
     }
 
-    async fn execute(
-        &self,
-        query: &str,
-        context: &AgentContext,
-    ) -> Result<AgentResult> {
+    async fn execute(&self, query: &str, context: &AgentContext) -> Result<AgentResult> {
         tracing::info!("PlanAgent planning: {}", query);
         Ok(AgentResult::success(format!("Planned: {}", query)))
     }
@@ -201,10 +186,10 @@ impl Default for PlanAgent {
 pub enum AgentError {
     #[error("Agent '{0}' not found")]
     NotFound(String),
-    
+
     #[error("Agent execution failed: {0}")]
     ExecutionFailed(String),
-    
+
     #[error("Agent timeout after {0}s")]
     Timeout(u64),
 }

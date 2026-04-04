@@ -3,14 +3,12 @@ use crossterm::event::{self, Event, KeyCode, KeyEventKind};
 use crossterm::terminal;
 use ratatui::{
     backend::CrosstermBackend,
-    layout::{Constraint, Direction, Layout, Rect},
+    layout::{Constraint, Direction, Layout},
     style::{Color, Style, Stylize},
-    widgets::{Block, Borders, Clear, List, ListItem, Paragraph, Scrollbar, ScrollbarState},
+    widgets::{Block, Borders, List, ListItem, Paragraph, ScrollbarState},
     Frame, Terminal,
 };
 use std::io;
-use std::sync::Arc;
-use theasus_terminal::Terminal as TerminalTrait;
 
 pub struct App {
     pub messages: Vec<MessageItem>,

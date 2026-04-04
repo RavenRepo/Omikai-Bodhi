@@ -38,14 +38,14 @@ impl GrepTool {
                 } else {
                     String::new()
                 };
-                
+
                 if files_with_matches {
                     results.push(path.display().to_string());
                     break;
                 } else {
                     let start = line_num.saturating_sub(context);
                     let end = (line_num + context + 1).min(content.lines().count());
-                    
+
                     if context > 0 {
                         results.push(format!("{}{}", prefix, line));
                         for i in start..line_num {
@@ -109,18 +109,15 @@ impl Tool for GrepTool {
         input: serde_json::Value,
         context: &ToolContext,
     ) -> crate::Result<ToolResult> {
-        let grep_input: GrepInput = serde_json::from_value(input).map_err(|e| {
-            crate::TheasusError::Tool {
+        let grep_input: GrepInput =
+            serde_json::from_value(input).map_err(|e| crate::TheasusError::Tool {
                 tool: "grep".to_string(),
                 reason: format!("Invalid input: {}", e),
-            }
-        })?;
+            })?;
 
-        let regex = Regex::new(&grep_input.pattern).map_err(|e| {
-            crate::TheasusError::Tool {
-                tool: "grep".to_string(),
-                reason: format!("Invalid regex: {}", e),
-            }
+        let regex = Regex::new(&grep_input.pattern).map_err(|e| crate::TheasusError::Tool {
+            tool: "grep".to_string(),
+            reason: format!("Invalid regex: {}", e),
         })?;
 
         let search_path = grep_input
@@ -143,7 +140,13 @@ impl Tool for GrepTool {
 
         if search_path.is_file() {
             let results = self
-                .grep_file(&regex, &search_path, files_with_matches, line_number, context_lines)
+                .grep_file(
+                    &regex,
+                    &search_path,
+                    files_with_matches,
+                    line_number,
+                    context_lines,
+                )
                 .await?;
             all_results.extend(results);
         } else if search_path.is_dir() {
@@ -152,7 +155,13 @@ impl Tool for GrepTool {
                 let path = entry.path();
                 if path.is_file() {
                     if let Ok(results) = self
-                        .grep_file(&regex, &path, files_with_matches, line_number, context_lines)
+                        .grep_file(
+                            &regex,
+                            &path,
+                            files_with_matches,
+                            line_number,
+                            context_lines,
+                        )
                         .await
                     {
                         if !results.is_empty() {

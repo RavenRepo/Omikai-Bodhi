@@ -2,8 +2,7 @@ use crossterm::{
     execute,
     terminal::{Clear, ClearType},
 };
-use std::sync::Arc;
-use theasus_terminal::{DynTerminal, KeyEvent, Result, Terminal, TerminalError, TerminalSize};
+use theasus_terminal::{Terminal, TerminalSize};
 
 pub struct CrosstermTerminal {
     size: TerminalSize,

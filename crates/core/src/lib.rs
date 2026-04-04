@@ -1,15 +1,17 @@
 use chrono::Utc;
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
-pub mod error;
 pub mod engine;
+pub mod error;
 pub mod types;
 
 pub use error::{Result, TheasusError};
-pub use types::{Message, UserMessage, AssistantMessage, SystemMessage, ContentBlock, ToolCall, ToolResult, Usage, AppState, Config, Response};
+pub use types::{
+    AppState, AssistantMessage, Config, ContentBlock, Message, Response, SystemMessage, ToolCall,
+    ToolResult, Usage, UserMessage,
+};
 
 pub use engine::QueryEngine;
 

@@ -4,7 +4,6 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
-use theasus_core::Message;
 use theasus_mcp::McpServerConfig;
 use uuid::Uuid;
 
@@ -81,21 +80,19 @@ impl Settings {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum Theme {
+    #[default]
     Dark,
     Light,
     System,
 }
 
-impl Default for Theme {
-    fn default() -> Self {
-        Self::Dark
-    }
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum PermissionMode {
+    #[default]
     Default,
     AcceptEdits,
     BypassPermissions,
@@ -103,12 +100,6 @@ pub enum PermissionMode {
     Plan,
     Auto,
     Bubble,
-}
-
-impl Default for PermissionMode {
-    fn default() -> Self {
-        Self::Default
-    }
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -267,7 +258,7 @@ impl SessionManager {
         for entry in fs::read_dir(&self.sessions_dir)? {
             let entry = entry?;
             let path = entry.path();
-            if path.extension().map_or(false, |ext| ext == "json") {
+            if path.extension().is_some_and(|ext| ext == "json") {
                 if let Ok(content) = fs::read_to_string(&path) {
                     if let Ok(session) = serde_json::from_str::<Session>(&content) {
                         sessions.push(session);

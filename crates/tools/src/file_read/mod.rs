@@ -54,12 +54,11 @@ impl Tool for FileReadTool {
         input: serde_json::Value,
         context: &ToolContext,
     ) -> crate::Result<ToolResult> {
-        let file_input: FileReadInput = serde_json::from_value(input).map_err(|e| {
-            crate::TheasusError::Tool {
+        let file_input: FileReadInput =
+            serde_json::from_value(input).map_err(|e| crate::TheasusError::Tool {
                 tool: "file_read".to_string(),
                 reason: format!("Invalid input: {}", e),
-            }
-        })?;
+            })?;
 
         let file_path = PathBuf::from(&file_input.path);
         let full_path = if file_path.is_absolute() {
@@ -68,12 +67,13 @@ impl Tool for FileReadTool {
             context.cwd.join(&file_path)
         };
 
-        let content = tokio::fs::read_to_string(&full_path).await.map_err(|e| {
-            crate::TheasusError::Tool {
-                tool: "file_read".to_string(),
-                reason: format!("Failed to read file: {}", e),
-            }
-        })?;
+        let content =
+            tokio::fs::read_to_string(&full_path)
+                .await
+                .map_err(|e| crate::TheasusError::Tool {
+                    tool: "file_read".to_string(),
+                    reason: format!("Failed to read file: {}", e),
+                })?;
 
         let lines: Vec<&str> = content.lines().collect();
         let offset = file_input.offset.unwrap_or(0);

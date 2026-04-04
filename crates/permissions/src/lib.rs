@@ -1,8 +1,9 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 pub enum PermissionMode {
+    #[default]
     Default,
     AcceptEdits,
     BypassPermissions,
@@ -10,12 +11,6 @@ pub enum PermissionMode {
     Plan,
     Auto,
     Bubble,
-}
-
-impl Default for PermissionMode {
-    fn default() -> Self {
-        Self::Default
-    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -80,19 +75,19 @@ impl PermissionManager {
             PermissionBehavior::Allow => {
                 self.always_allow
                     .entry(rule.source)
-                    .or_insert_with(Vec::new)
+                    .or_default()
                     .push(rule.name);
             }
             PermissionBehavior::Deny => {
                 self.always_deny
                     .entry(rule.source)
-                    .or_insert_with(Vec::new)
+                    .or_default()
                     .push(rule.name);
             }
             PermissionBehavior::Ask => {
                 self.always_ask
                     .entry(rule.source)
-                    .or_insert_with(Vec::new)
+                    .or_default()
                     .push(rule.name);
             }
         }
@@ -149,7 +144,7 @@ impl PermissionManager {
         let tool = tool.into();
         self.always_allow
             .entry(PermissionRuleSource::UserSettings)
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(tool);
     }
 
@@ -157,7 +152,7 @@ impl PermissionManager {
         let tool = tool.into();
         self.always_deny
             .entry(PermissionRuleSource::UserSettings)
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(tool);
     }
 
@@ -165,7 +160,7 @@ impl PermissionManager {
         let tool = tool.into();
         self.always_ask
             .entry(PermissionRuleSource::UserSettings)
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(tool);
     }
 }

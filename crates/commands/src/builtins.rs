@@ -1,7 +1,6 @@
 use super::{Command, CommandContext, CommandResult};
 use async_trait::async_trait;
 use std::fmt;
-use std::sync::Arc;
 
 pub struct HelpCommand;
 
@@ -59,7 +58,7 @@ impl Command for HelpCommand {
         } else {
             format!("Help for /{}: {}", args, "Command help text")
         };
-        
+
         Ok(CommandResult::success(output))
     }
 }
@@ -311,7 +310,9 @@ impl Command for CompactCommand {
         _args: &str,
         _context: &CommandContext,
     ) -> theasus_core::Result<CommandResult> {
-        Ok(CommandResult::success("Conversation compacted (not yet implemented)"))
+        Ok(CommandResult::success(
+            "Conversation compacted (not yet implemented)",
+        ))
     }
 }
 
@@ -365,7 +366,8 @@ impl Command for ToolsCommand {
   file_read - Read file contents
   file_write - Write content to files
   grep      - Search for patterns in files
-  glob      - Find files by pattern"#.to_string();
+  glob      - Find files by pattern"#
+            .to_string();
         Ok(CommandResult::success(output))
     }
 }
@@ -418,7 +420,8 @@ impl Command for AgentsCommand {
         let output = r#"Available agents:
   general-purpose - General purpose assistant
   explore        - Explore codebase
-  plan           - Create task plans"#.to_string();
+  plan           - Create task plans"#
+            .to_string();
         Ok(CommandResult::success(output))
     }
 }
@@ -473,9 +476,10 @@ impl Command for ConfigCommand {
         _context: &CommandContext,
     ) -> theasus_core::Result<CommandResult> {
         let settings = theasus_settings::Settings::load().unwrap_or_default();
-        
+
         if args.is_empty() {
-            let output = format!(r#"Current Configuration:
+            let output = format!(
+                r#"Current Configuration:
   model:          {}
   provider:       {}
   theme:          {:?}
@@ -490,7 +494,9 @@ impl Command for ConfigCommand {
             );
             Ok(CommandResult::success(output))
         } else {
-            Ok(CommandResult::success("Config updating not yet implemented"))
+            Ok(CommandResult::success(
+                "Config updating not yet implemented",
+            ))
         }
     }
 }
@@ -542,7 +548,8 @@ impl Command for EnvCommand {
   OLLAMA_BASE_URL     - Ollama endpoint (default: http://localhost:11434)
   BODHI_CONFIG_PATH   - Custom config file path
   RUST_LOG           - Logging level (debug, info, warn, error)
-"#.to_string();
+"#
+        .to_string();
         Ok(CommandResult::success(output))
     }
 }
@@ -588,7 +595,9 @@ impl Command for PwdCommand {
         _args: &str,
         context: &CommandContext,
     ) -> theasus_core::Result<CommandResult> {
-        Ok(CommandResult::success(context.cwd.to_string_lossy().to_string()))
+        Ok(CommandResult::success(
+            context.cwd.to_string_lossy().to_string(),
+        ))
     }
 }
 

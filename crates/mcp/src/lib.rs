@@ -1,6 +1,4 @@
-use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 use theasus_core::Result;
 use uuid::Uuid;
 
@@ -69,8 +67,16 @@ impl McpClient {
         Ok(vec![])
     }
 
-    pub async fn call_tool(&self, name: &str, arguments: serde_json::Value) -> Result<McpCallToolResponse> {
-        tracing::info!("Calling MCP tool: {} on server: {}", name, self.server_config.name);
+    pub async fn call_tool(
+        &self,
+        name: &str,
+        arguments: serde_json::Value,
+    ) -> Result<McpCallToolResponse> {
+        tracing::info!(
+            "Calling MCP tool: {} on server: {}",
+            name,
+            self.server_config.name
+        );
         Ok(McpCallToolResponse {
             content: vec![],
             is_error: None,
@@ -78,12 +84,19 @@ impl McpClient {
     }
 
     pub async fn list_resources(&self) -> Result<Vec<McpResource>> {
-        tracing::info!("Listing resources from MCP server: {}", self.server_config.name);
+        tracing::info!(
+            "Listing resources from MCP server: {}",
+            self.server_config.name
+        );
         Ok(vec![])
     }
 
     pub async fn read_resource(&self, uri: &str) -> Result<String> {
-        tracing::info!("Reading resource: {} from MCP server: {}", uri, self.server_config.name);
+        tracing::info!(
+            "Reading resource: {} from MCP server: {}",
+            uri,
+            self.server_config.name
+        );
         Ok(String::new())
     }
 
@@ -97,16 +110,16 @@ impl McpClient {
 pub enum McpError {
     #[error("Failed to connect to MCP server: {0}")]
     ConnectionFailed(String),
-    
+
     #[error("MCP server error: {0}")]
     ServerError(String),
-    
+
     #[error("Tool not found: {0}")]
     ToolNotFound(String),
-    
+
     #[error("Resource not found: {0}")]
     ResourceNotFound(String),
-    
+
     #[error("Invalid response from MCP server")]
     InvalidResponse,
 }

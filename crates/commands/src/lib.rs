@@ -6,7 +6,10 @@ use theasus_core::Result;
 
 pub mod builtins;
 
-pub use builtins::{HelpCommand, ClearCommand, ExitCommand, StatusCommand, ModelCommand, CompactCommand, ToolsCommand, AgentsCommand, ConfigCommand, EnvCommand, PwdCommand, HistoryCommand};
+pub use builtins::{
+    AgentsCommand, ClearCommand, CompactCommand, ConfigCommand, EnvCommand, ExitCommand,
+    HelpCommand, HistoryCommand, ModelCommand, PwdCommand, StatusCommand, ToolsCommand,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CommandResult {
@@ -41,15 +44,15 @@ pub struct CommandContext {
 #[async_trait]
 pub trait Command: Send + Sync {
     fn name(&self) -> &str;
-    fn aliases(&self) -> &[&str] { &[] }
+    fn aliases(&self) -> &[&str] {
+        &[]
+    }
     fn description(&self) -> &str;
-    fn args_description(&self) -> Option<&str> { None }
-    
-    async fn execute(
-        &self,
-        args: &str,
-        context: &CommandContext,
-    ) -> Result<CommandResult>;
+    fn args_description(&self) -> Option<&str> {
+        None
+    }
+
+    async fn execute(&self, args: &str, context: &CommandContext) -> Result<CommandResult>;
 }
 
 pub struct CommandRegistry {
@@ -71,19 +74,19 @@ impl CommandRegistry {
             self.register_alias("h", cmd.clone());
             self.register_alias("?", cmd.clone());
         }
-        
+
         self.register(ClearCommand::new());
         if let Some(cmd) = self.get("clear") {
             self.register_alias("c", cmd.clone());
         }
-        
+
         self.register(ExitCommand::new());
         if let Some(cmd) = self.get("exit") {
             self.register_alias("e", cmd.clone());
             self.register_alias("quit", cmd.clone());
             self.register_alias("q", cmd.clone());
         }
-        
+
         self.register(StatusCommand::new());
         self.register(ModelCommand::new());
         self.register(CompactCommand::new());
@@ -135,10 +138,10 @@ impl Default for CommandRegistry {
 pub enum CommandError {
     #[error("Command not found: {0}")]
     NotFound(String),
-    
+
     #[error("Command execution failed: {0}")]
     ExecutionFailed(String),
-    
+
     #[error("Invalid arguments for command {command}: {message}")]
     InvalidArguments { command: String, message: String },
 }
