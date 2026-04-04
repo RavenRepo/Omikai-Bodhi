@@ -6,7 +6,7 @@ use theasus_core::Result;
 
 pub mod builtins;
 
-pub use builtins::{HelpCommand, ClearCommand, ExitCommand, StatusCommand, ModelCommand, CompactCommand, ToolsCommand, AgentsCommand};
+pub use builtins::{HelpCommand, ClearCommand, ExitCommand, StatusCommand, ModelCommand, CompactCommand, ToolsCommand, AgentsCommand, ConfigCommand, EnvCommand, PwdCommand, HistoryCommand};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CommandResult {
@@ -89,6 +89,10 @@ impl CommandRegistry {
         self.register(CompactCommand::new());
         self.register(ToolsCommand::new());
         self.register(AgentsCommand::new());
+        self.register(ConfigCommand::new());
+        self.register(EnvCommand::new());
+        self.register(PwdCommand::new());
+        self.register(HistoryCommand::new());
     }
 
     pub fn register<C: Command + 'static>(&mut self, command: C) {
