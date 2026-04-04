@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use async_trait::async_trait;
+use std::sync::Arc;
 
 pub type Result<T> = std::result::Result<T, anyhow::Error>;
 

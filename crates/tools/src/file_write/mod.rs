@@ -54,12 +54,11 @@ impl Tool for FileWriteTool {
         input: serde_json::Value,
         context: &ToolContext,
     ) -> crate::Result<ToolResult> {
-        let file_input: FileWriteInput = serde_json::from_value(input).map_err(|e| {
-            crate::TheasusError::Tool {
+        let file_input: FileWriteInput =
+            serde_json::from_value(input).map_err(|e| crate::TheasusError::Tool {
                 tool: "file_write".to_string(),
                 reason: format!("Invalid input: {}", e),
-            }
-        })?;
+            })?;
 
         let file_path = PathBuf::from(&file_input.path);
         let full_path = if file_path.is_absolute() {
@@ -86,12 +85,12 @@ impl Tool for FileWriteTool {
         match result {
             Ok(mut file) => {
                 use tokio::io::AsyncWriteExt;
-                file.write_all(file_input.content.as_bytes()).await.map_err(|e| {
-                    crate::TheasusError::Tool {
+                file.write_all(file_input.content.as_bytes())
+                    .await
+                    .map_err(|e| crate::TheasusError::Tool {
                         tool: "file_write".to_string(),
                         reason: format!("Failed to write file: {}", e),
-                    }
-                })?;
+                    })?;
 
                 Ok(ToolResult {
                     success: true,

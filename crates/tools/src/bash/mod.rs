@@ -40,11 +40,7 @@ impl BashTool {
         }
 
         let output = if let Some(timeout) = timeout {
-            match tokio::time::timeout(
-                std::time::Duration::from_secs(timeout),
-                cmd.output(),
-            )
-            .await
+            match tokio::time::timeout(std::time::Duration::from_secs(timeout), cmd.output()).await
             {
                 Ok(Ok(output)) => output,
                 Ok(Err(e)) => {
@@ -63,11 +59,9 @@ impl BashTool {
                 }
             }
         } else {
-            cmd.output().await.map_err(|e| {
-                crate::TheasusError::Tool {
-                    tool: "bash".to_string(),
-                    reason: e.to_string(),
-                }
+            cmd.output().await.map_err(|e| crate::TheasusError::Tool {
+                tool: "bash".to_string(),
+                reason: e.to_string(),
             })?
         };
 
@@ -122,12 +116,11 @@ impl Tool for BashTool {
         input: serde_json::Value,
         context: &ToolContext,
     ) -> crate::Result<ToolResult> {
-        let bash_input: BashInput = serde_json::from_value(input).map_err(|e| {
-            crate::TheasusError::Tool {
+        let bash_input: BashInput =
+            serde_json::from_value(input).map_err(|e| crate::TheasusError::Tool {
                 tool: "bash".to_string(),
                 reason: format!("Invalid input: {}", e),
-            }
-        })?;
+            })?;
 
         self.execute_impl(
             &bash_input.command,

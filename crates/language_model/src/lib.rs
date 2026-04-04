@@ -1,9 +1,9 @@
 use anyhow::Result;
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use futures::Stream;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Message {
@@ -40,9 +40,18 @@ pub struct SystemMessage {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum ContentBlock {
-    Text { text: String },
-    ToolUse { id: String, name: String, input: serde_json::Value },
-    ToolResult { tool_use_id: String, content: String },
+    Text {
+        text: String,
+    },
+    ToolUse {
+        id: String,
+        name: String,
+        input: serde_json::Value,
+    },
+    ToolResult {
+        tool_use_id: String,
+        content: String,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -64,12 +73,12 @@ pub trait LanguageModel: Send + Sync {
     fn id(&self) -> &str;
     fn name(&self) -> &str;
     fn max_tokens(&self) -> Option<u32>;
-    
+
     async fn complete(&self, request: CompletionRequest) -> Result<CompletionResponse>;
-    
+
     async fn stream(
-        &self, 
-        request: CompletionRequest
+        &self,
+        request: CompletionRequest,
     ) -> Result<Box<dyn Stream<Item = Result<CompletionChunk>> + Send>>;
 }
 

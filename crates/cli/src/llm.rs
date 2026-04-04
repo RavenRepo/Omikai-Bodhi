@@ -1,9 +1,9 @@
 use anyhow::Result;
+use chrono::Utc;
 use std::path::PathBuf;
 use std::sync::Arc;
-use uuid::Uuid;
-use chrono::Utc;
 use theasus_omik_provider::{LlmProvider, OmikProvider};
+use uuid::Uuid;
 
 pub struct LlmManager {
     pub client: Option<Arc<dyn theasus_language_model::LanguageModel>>,
@@ -14,31 +14,30 @@ impl LlmManager {
     pub fn new() -> Self {
         let settings = theasus_settings::Settings::load().unwrap_or_default();
         let client = Self::create_client(&settings);
-        
-        Self {
-            client,
-            settings,
-        }
+
+        Self { client, settings }
     }
 
-    fn create_client(settings: &theasus_settings::Settings) -> Option<Arc<dyn theasus_language_model::LanguageModel>> {
+    fn create_client(
+        settings: &theasus_settings::Settings,
+    ) -> Option<Arc<dyn theasus_language_model::LanguageModel>> {
         let api_key = settings.api_key.as_ref()?;
-        
+
         let provider = match settings.llm_provider.to_lowercase().as_str() {
             "openai" => LlmProvider::OpenAi,
             "anthropic" => LlmProvider::Anthropic,
             "ollama" => LlmProvider::Ollama,
-            "custom" => LlmProvider::Custom { 
-                name: "custom".to_string(), 
-                base_url: settings.llm_base_url.clone().unwrap_or_default() 
+            "custom" => LlmProvider::Custom {
+                name: "custom".to_string(),
+                base_url: settings.llm_base_url.clone().unwrap_or_default(),
             },
             _ => LlmProvider::OpenAi,
         };
 
         let http_client = theasus_reqwest_client::ReqwestClient::new().ok()?;
-        
+
         let http_client: Arc<dyn theasus_http_client::HttpClient> = Arc::new(http_client);
-        
+
         let client = OmikProvider::new(
             http_client,
             api_key.clone(),
@@ -58,7 +57,10 @@ impl LlmManager {
         self.client.is_some()
     }
 
-    pub async fn complete(&self, prompt: &str) -> Result<theasus_language_model::CompletionResponse> {
+    pub async fn complete(
+        &self,
+        prompt: &str,
+    ) -> Result<theasus_language_model::CompletionResponse> {
         match &self.client {
             Some(client) => {
                 let request = theasus_language_model::CompletionRequest {

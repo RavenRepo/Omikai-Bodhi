@@ -70,12 +70,11 @@ impl Tool for GlobTool {
         input: serde_json::Value,
         context: &ToolContext,
     ) -> crate::Result<ToolResult> {
-        let glob_input: GlobInput = serde_json::from_value(input).map_err(|e| {
-            crate::TheasusError::Tool {
+        let glob_input: GlobInput =
+            serde_json::from_value(input).map_err(|e| crate::TheasusError::Tool {
                 tool: "glob".to_string(),
                 reason: format!("Invalid input: {}", e),
-            }
-        })?;
+            })?;
 
         let base_path = glob_input
             .path

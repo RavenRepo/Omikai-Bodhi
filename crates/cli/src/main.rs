@@ -1,6 +1,6 @@
 use anyhow::Result;
-use serde_json;
 use clap::{Parser, Subcommand};
+use serde_json;
 use std::path::PathBuf;
 use std::sync::Arc;
 use uuid::Uuid;
@@ -90,7 +90,7 @@ fn main() -> Result<()> {
             println!("Bodhi AI Terminal v{}", env!("CARGO_PKG_VERSION"));
             println!("Use /help for available commands, /exit to quit");
             println!("Working directory: {:?}", cwd);
-            
+
             let mut app = app::App::new(cwd);
             app.run()?;
             Ok(())
@@ -98,11 +98,11 @@ fn main() -> Result<()> {
         Commands::Query { prompt, stream } => {
             let prompt = prompt.join(" ");
             tracing::info!("Executing query: {}", prompt);
-            
+
             if stream {
                 println!("[streaming mode not yet implemented]");
             }
-            
+
             let tool_registry = Arc::new(theasus_tools::ToolRegistry::new());
             let tool = tool_registry.get("bash").unwrap();
             let context = theasus_tools::ToolContext {
@@ -110,14 +110,12 @@ fn main() -> Result<()> {
                 session_id: Uuid::new_v4(),
                 user_id: None,
             };
-            
+
             let result = tokio::runtime::Runtime::new()?.block_on(async {
-                tool.execute(
-                    serde_json::json!({ "command": &prompt }),
-                    &context,
-                ).await
+                tool.execute(serde_json::json!({ "command": &prompt }), &context)
+                    .await
             });
-            
+
             match result {
                 Ok(result) => {
                     println!("{}", result.output);
@@ -144,7 +142,12 @@ fn main() -> Result<()> {
             }
             Ok(())
         }
-        Commands::ConfigLlm { provider, api_key, model, base_url } => {
+        Commands::ConfigLlm {
+            provider,
+            api_key,
+            model,
+            base_url,
+        } => {
             if provider.is_none() && api_key.is_none() && model.is_none() && base_url.is_none() {
                 println!("LLM Configuration:");
                 println!("  Use --provider to set provider (openai, anthropic, ollama, custom)");
@@ -159,7 +162,7 @@ fn main() -> Result<()> {
             }
 
             let mut settings = theasus_settings::Settings::load().unwrap_or_default();
-            
+
             if let Some(provider) = provider {
                 settings.llm_provider = provider;
             }
@@ -172,7 +175,7 @@ fn main() -> Result<()> {
             if let Some(base_url) = base_url {
                 settings.llm_base_url = Some(base_url);
             }
-            
+
             settings.save()?;
             println!("LLM configuration updated successfully!");
             Ok(())

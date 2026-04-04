@@ -59,7 +59,7 @@ impl Command for HelpCommand {
         } else {
             format!("Help for /{}: {}", args, "Command help text")
         };
-        
+
         Ok(CommandResult::success(output))
     }
 }
@@ -311,7 +311,9 @@ impl Command for CompactCommand {
         _args: &str,
         _context: &CommandContext,
     ) -> theasus_core::Result<CommandResult> {
-        Ok(CommandResult::success("Conversation compacted (not yet implemented)"))
+        Ok(CommandResult::success(
+            "Conversation compacted (not yet implemented)",
+        ))
     }
 }
 
@@ -365,7 +367,8 @@ impl Command for ToolsCommand {
   file_read - Read file contents
   file_write - Write content to files
   grep      - Search for patterns in files
-  glob      - Find files by pattern"#.to_string();
+  glob      - Find files by pattern"#
+            .to_string();
         Ok(CommandResult::success(output))
     }
 }
@@ -418,7 +421,8 @@ impl Command for AgentsCommand {
         let output = r#"Available agents:
   general-purpose - General purpose assistant
   explore        - Explore codebase
-  plan           - Create task plans"#.to_string();
+  plan           - Create task plans"#
+            .to_string();
         Ok(CommandResult::success(output))
     }
 }

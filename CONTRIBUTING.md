@@ -135,6 +135,46 @@ Includes undo functionality and safety checks.
 Closes #123
 ```
 
+### Release Tags
+
+Tags follow semantic versioning (SemVer):
+- `v0.1.0` - Initial release
+- `v0.2.0` - New features (backward compatible)
+- `v0.2.1` - Bug fixes
+- `v1.0.0` - Breaking changes
+
+Creating a release:
+```bash
+# Create a tag
+git tag -a v0.2.0 -m "Release v0.2.0"
+
+# Push tag to remote
+git push origin v0.2.0
+```
+
+GitHub will automatically create a release from the tag.
+
+### Branch Protection Rules
+
+The `main` branch is protected. Required settings:
+
+1. **Require pull request reviews** - At least 1 approval required
+2. **Require status checks** - CI must pass before merge
+3. **Require branches to be up to date** - Base branch must be up to date
+4. **Include administrators** - Apply rules to admins too
+5. **Require conversation resolution** - Resolved comments before merge
+
+Feature branches should be deleted after merging:
+```bash
+# Delete local branch
+git branch -d feature/my-feature
+
+# Delete remote branch
+git push origin --delete feature/my-feature
+```
+
+**Note:** Branch protection requires GitHub Pro for private repositories. For public repositories, it's free.
+
 ## Writing Tests
 
 ### Unit Tests

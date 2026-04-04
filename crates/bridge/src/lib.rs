@@ -40,7 +40,9 @@ impl BridgeConnection {
 
     pub async fn send_message(&self, message: BridgeMessage) -> Result<()> {
         if !self.connected {
-            return Err(theasus_core::TheasusError::Other("Not connected".to_string()));
+            return Err(theasus_core::TheasusError::Other(
+                "Not connected".to_string(),
+            ));
         }
         tracing::debug!("Sending message: {:?}", message);
         Ok(())
@@ -48,7 +50,9 @@ impl BridgeConnection {
 
     pub async fn receive_message(&mut self) -> Result<BridgeMessage> {
         if !self.connected {
-            return Err(theasus_core::TheasusError::Other("Not connected".to_string()));
+            return Err(theasus_core::TheasusError::Other(
+                "Not connected".to_string(),
+            ));
         }
         Ok(BridgeMessage::default())
     }
@@ -135,19 +139,19 @@ impl Default for BridgeManager {
 pub enum BridgeError {
     #[error("Failed to connect: {0}")]
     ConnectionFailed(String),
-    
+
     #[error("Not connected")]
     NotConnected,
-    
+
     #[error("Session not found: {0}")]
     SessionNotFound(Uuid),
-    
+
     #[error("Send failed: {0}")]
     SendFailed(String),
-    
+
     #[error("Receive failed: {0}")]
     ReceiveFailed(String),
-    
+
     #[error("Invalid message: {0}")]
     InvalidMessage(String),
 }

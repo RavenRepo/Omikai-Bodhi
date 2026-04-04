@@ -64,6 +64,7 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 async-trait = "0.1"
 futures = "0.3"
+tokio-io-util = "0.3"
 
 # IDs & Time
 uuid = { version = "1", features = ["v4", "serde"] }
@@ -71,7 +72,7 @@ chrono = { version = "0.4", features = ["serde"] }
 directories = "5"
 
 # HTTP
-reqwest = { version = "0.12", features = ["json", "stream"] }
+reqwest = { version = "0.12", features = ["json", "stream", "gzip"] }
 
 # CLI
 clap = { version = "4", features = ["derive", "env"] }

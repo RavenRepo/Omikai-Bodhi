@@ -1,6 +1,6 @@
-use std::sync::Arc;
 use async_trait::async_trait;
 use reqwest::Client;
+use std::sync::Arc;
 
 pub struct ReqwestClient {
     client: Client,
@@ -47,7 +47,10 @@ impl Default for ReqwestClient {
 
 #[async_trait]
 impl theasus_http_client::HttpClient for ReqwestClient {
-    async fn send(&self, mut request: reqwest::Request) -> theasus_http_client::Result<reqwest::Response> {
+    async fn send(
+        &self,
+        mut request: reqwest::Request,
+    ) -> theasus_http_client::Result<reqwest::Response> {
         self.apply_headers(&mut request);
         Ok(self.client.execute(request).await?)
     }

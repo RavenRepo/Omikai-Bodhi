@@ -2,19 +2,19 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
-use theasus_core::{TheasusError, Result};
+use theasus_core::{Result, TheasusError};
 
 pub mod bash;
 pub mod file_read;
 pub mod file_write;
-pub mod grep;
 pub mod glob;
+pub mod grep;
 
 pub use bash::BashTool;
 pub use file_read::FileReadTool;
 pub use file_write::FileWriteTool;
-pub use grep::GrepTool;
 pub use glob::GlobTool;
+pub use grep::GrepTool;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolDefinition {
@@ -27,12 +27,8 @@ pub struct ToolDefinition {
 pub trait Tool: Send + Sync {
     fn name(&self) -> &str;
     fn definition(&self) -> ToolDefinition;
-    
-    async fn execute(
-        &self,
-        input: serde_json::Value,
-        context: &ToolContext,
-    ) -> Result<ToolResult>;
+
+    async fn execute(&self, input: serde_json::Value, context: &ToolContext) -> Result<ToolResult>;
 }
 
 #[derive(Debug, Clone)]
@@ -79,10 +75,7 @@ impl ToolRegistry {
     }
 
     pub fn list(&self) -> Vec<ToolDefinition> {
-        self.tools
-            .values()
-            .map(|tool| tool.definition())
-            .collect()
+        self.tools.values().map(|tool| tool.definition()).collect()
     }
 }
 
@@ -96,13 +89,13 @@ impl Default for ToolRegistry {
 pub enum ToolError {
     #[error("Tool not found: {name}")]
     NotFound { name: String },
-    
+
     #[error("Tool execution failed: {message}")]
     ExecutionFailed { message: String },
-    
+
     #[error("Invalid input for tool {name}: {message}")]
     InvalidInput { name: String, message: String },
-    
+
     #[error("Permission denied for tool {name}: {reason}")]
     PermissionDenied { name: String, reason: String },
 }
