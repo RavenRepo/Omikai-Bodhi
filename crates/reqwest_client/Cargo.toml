@@ -1,0 +1,16 @@
+[package]
+name = "theasus-reqwest-client"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+rust-version = "1.75"
+
+[dependencies]
+theasus-http-client = { workspace = true }
+reqwest = { workspace = true }
+tokio = { workspace = true }
+async-trait = { workspace = true }
+
+[features]
+default = []
+test-support = []

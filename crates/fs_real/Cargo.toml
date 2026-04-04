@@ -1,0 +1,16 @@
+[package]
+name = "theasus-fs-real"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+rust-version = "1.75"
+
+[dependencies]
+theasus-fs = { workspace = true }
+tokio = { workspace = true }
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+
+[features]
+default = []
+test-support = []

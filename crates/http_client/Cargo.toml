@@ -1,0 +1,16 @@
+[package]
+name = "theasus-http-client"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+rust-version = "1.75"
+
+[dependencies]
+async-trait = { workspace = true }
+futures = { workspace = true }
+reqwest = { workspace = true }
+anyhow = { workspace = true }
+
+[features]
+default = []
+test-support = []

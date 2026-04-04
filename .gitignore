@@ -1,0 +1,46 @@
+# Build artifacts
+/target/
+**/target/
+
+# Cargo lock file (optional - uncomment if you want to version lock)
+# Cargo.lock
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+
+# Editor directories and files
+*.sublime-*
+
+# Rust-specific
+**/*.rs.bk
+
+# Binary output
+/bin/
+/dist/
+
+# Config with secrets (if using custom path)
+config.local.json
+
+# Temporary files
+*.tmp
+*.temp
+
+# Backup files
+*.bak
+*.backup

@@ -1,0 +1,20 @@
+[package]
+name = "theasus-language-model"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+rust-version = "1.75"
+
+[dependencies]
+theasus-http-client = { workspace = true }
+async-trait = { workspace = true }
+futures = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+
+[features]
+default = []
+test-support = []

@@ -1,0 +1,89 @@
+[workspace]
+members = [
+    "crates/core",
+    "crates/language_model",
+    "crates/omik_provider",
+    "crates/http_client",
+    "crates/reqwest_client",
+    "crates/fs",
+    "crates/fs_real",
+    "crates/cli",
+    "crates/tools",
+    "crates/terminal",
+    "crates/terminal_crossterm",
+    "crates/ui",
+    "crates/commands",
+    "crates/agents",
+    "crates/mcp",
+    "crates/settings",
+    "crates/bridge",
+    "crates/permissions",
+    # "crates/extension_api",
+    # "crates/bridge",
+    # "crates/mcp",
+    # "crates/settings",
+    # "crates/settings_macros",
+    # "crates/extension_api",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+rust-version = "1.75"
+
+[workspace.dependencies]
+# Internal crates
+theasus-core = { path = "crates/core" }
+theasus-language-model = { path = "crates/language_model" }
+theasus-omik-provider = { path = "crates/omik_provider" }
+theasus-http-client = { path = "crates/http_client" }
+theasus-reqwest-client = { path = "crates/reqwest_client" }
+theasus-fs = { path = "crates/fs" }
+theasus-fs-real = { path = "crates/fs_real" }
+theasus-cli = { path = "crates/cli" }
+theasus-tools = { path = "crates/tools" }
+theasus-terminal = { path = "crates/terminal" }
+theasus-terminal-crossterm = { path = "crates/terminal_crossterm" }
+theasus-ui = { path = "crates/ui" }
+theasus-commands = { path = "crates/commands" }
+theasus-agents = { path = "crates/agents" }
+theasus-mcp = { path = "crates/mcp" }
+theasus-settings = { path = "crates/settings" }
+theasus-bridge = { path = "crates/bridge" }
+theasus-permissions = { path = "crates/permissions" }
+
+# Core
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1"
+anyhow = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+async-trait = "0.1"
+futures = "0.3"
+
+# IDs & Time
+uuid = { version = "1", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+directories = "5"
+
+# HTTP
+reqwest = { version = "0.12", features = ["json", "stream"] }
+
+# CLI
+clap = { version = "4", features = ["derive", "env"] }
+
+# Terminal UI
+ratatui = "0.28"
+crossterm = "0.28"
+
+# Utilities
+regex = "1"
+glob = "0.3"
+tokio-tungstenite = "0.24"
+
+[workspace.metadata.bodhi]
+default-model = "gpt-4o"

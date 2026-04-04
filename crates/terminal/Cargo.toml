@@ -1,0 +1,15 @@
+[package]
+name = "theasus-terminal"
+description = "Bodhi Terminal abstraction trait"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+tokio.workspace = true
+async-trait.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+crossterm.workspace = true

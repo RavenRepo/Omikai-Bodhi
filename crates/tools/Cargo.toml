@@ -1,0 +1,21 @@
+[package]
+name = "theasus-tools"
+description = "Bodhi Tool framework and implementations"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+theasus-core.workspace = true
+theasus-fs.workspace = true
+theasus-http-client.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+async-trait.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+regex.workspace = true
+glob.workspace = true
+uuid.workspace = true

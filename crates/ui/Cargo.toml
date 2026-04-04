@@ -1,0 +1,20 @@
+[package]
+name = "theasus-ui"
+description = "Bodhi Terminal UI with ratatui"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+theasus-core.workspace = true
+theasus-terminal.workspace = true
+theasus-terminal-crossterm.workspace = true
+ratatui.workspace = true
+crossterm.workspace = true
+tokio.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+tokio-test = "0.4"

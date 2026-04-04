@@ -1,0 +1,16 @@
+[package]
+name = "theasus-terminal-crossterm"
+description = "Bodhi Terminal crossterm implementation"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+theasus-terminal = { path = "../terminal" }
+crossterm.workspace = true
+tokio.workspace = true
+async-trait.workspace = true
+
+[dev-dependencies]
+tokio-test = "0.4"

@@ -1,0 +1,36 @@
+[package]
+name = "theasus-cli"
+description = "Bodhi AI Terminal - CLI entry point"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "bodhi"
+path = "src/main.rs"
+
+[dependencies]
+theasus-core.workspace = true
+theasus-language-model.workspace = true
+theasus-omik-provider.workspace = true
+theasus-fs.workspace = true
+theasus-fs-real.workspace = true
+theasus-http-client.workspace = true
+theasus-reqwest-client.workspace = true
+theasus-tools.workspace = true
+theasus-commands.workspace = true
+theasus-agents.workspace = true
+theasus-settings.workspace = true
+tokio.workspace = true
+clap.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+anyhow.workspace = true
+uuid.workspace = true
+serde_json.workspace = true
+serde.workspace = true
+chrono.workspace = true
+
+[dev-dependencies]
+tempfile = "3"

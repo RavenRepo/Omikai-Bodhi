@@ -1,0 +1,23 @@
+[package]
+name = "theasus-mcp"
+description = "Bodhi MCP (Model Context Protocol) Client"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+theasus-core.workspace = true
+theasus-tools.workspace = true
+theasus-http-client.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+async-trait.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+uuid.workspace = true
+tokio-tungstenite.workspace = true
+
+[dev-dependencies]
+tokio-test = "0.4"
