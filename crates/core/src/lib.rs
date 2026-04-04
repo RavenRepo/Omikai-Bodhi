@@ -15,9 +15,6 @@ pub use types::{
 
 pub use engine::QueryEngine;
 
-#[cfg(feature = "language_model")]
-pub use theasus_language_model as language_model;
-
 pub struct Theasus {
     pub state: Arc<RwLock<AppState>>,
     pub config: Config,

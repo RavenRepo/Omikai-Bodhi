@@ -11,6 +11,45 @@ pub enum Message {
     Attachment(AttachmentMessage),
 }
 
+impl Message {
+    pub fn user(content: impl Into<String>) -> Self {
+        Message::User(UserMessage {
+            id: Uuid::new_v4(),
+            content: vec![ContentBlock::Text { text: content.into() }],
+            timestamp: Utc::now(),
+        })
+    }
+
+    pub fn assistant(content: impl Into<String>) -> Self {
+        Message::Assistant(AssistantMessage {
+            id: Uuid::new_v4(),
+            content: vec![ContentBlock::Text { text: content.into() }],
+            tool_calls: vec![],
+            usage: Usage::default(),
+            model: String::new(),
+            stop_reason: None,
+            timestamp: Utc::now(),
+        })
+    }
+
+    pub fn system(content: impl Into<String>) -> Self {
+        Message::System(SystemMessage {
+            content: content.into(),
+        })
+    }
+
+    pub fn tool_result(tool_use_id: impl Into<String>, content: impl Into<String>) -> Self {
+        Message::User(UserMessage {
+            id: Uuid::new_v4(),
+            content: vec![ContentBlock::ToolResult {
+                tool_use_id: tool_use_id.into(),
+                content: content.into(),
+            }],
+            timestamp: Utc::now(),
+        })
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserMessage {
     pub id: Uuid,

@@ -45,6 +45,25 @@ pub struct ToolResult {
     pub error: Option<String>,
 }
 
+impl ToolResult {
+    pub fn success(output: impl Into<String>) -> Self {
+        Self {
+            success: true,
+            output: output.into(),
+            error: None,
+        }
+    }
+
+    pub fn error(message: impl Into<String>) -> Self {
+        let msg = message.into();
+        Self {
+            success: false,
+            output: msg.clone(),
+            error: Some(msg),
+        }
+    }
+}
+
 pub struct ToolRegistry {
     tools: HashMap<String, Arc<dyn Tool>>,
 }
@@ -76,6 +95,37 @@ impl ToolRegistry {
 
     pub fn list(&self) -> Vec<ToolDefinition> {
         self.tools.values().map(|tool| tool.definition()).collect()
+    }
+
+    pub fn list_tools(&self) -> Vec<ToolDefinition> {
+        self.list()
+    }
+
+    pub async fn execute(&self, name: &str, input: serde_json::Value) -> Result<ToolResult> {
+        let tool = self.get(name).ok_or_else(|| {
+            TheasusError::Other(format!("Tool not found: {}", name))
+        })?;
+
+        let context = ToolContext {
+            cwd: std::env::current_dir().unwrap_or_default(),
+            session_id: uuid::Uuid::new_v4(),
+            user_id: None,
+        };
+
+        tool.execute(input, &context).await
+    }
+
+    pub async fn execute_with_context(
+        &self,
+        name: &str,
+        input: serde_json::Value,
+        context: &ToolContext,
+    ) -> Result<ToolResult> {
+        let tool = self.get(name).ok_or_else(|| {
+            TheasusError::Other(format!("Tool not found: {}", name))
+        })?;
+
+        tool.execute(input, context).await
     }
 
     pub fn to_llm_tools(&self) -> Vec<theasus_language_model::ToolDefinition> {
