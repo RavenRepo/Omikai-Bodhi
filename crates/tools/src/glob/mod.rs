@@ -16,12 +16,12 @@ impl GlobTool {
         Self
     }
 
-    fn walk_dir(&self, dir: &PathBuf, pattern: &str, matches: &mut Vec<String>) {
+    fn walk_dir(dir: &PathBuf, pattern: &str, matches: &mut Vec<String>) {
         if let Ok(entries) = std::fs::read_dir(dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
                 if path.is_dir() {
-                    self.walk_dir(&path, pattern, matches);
+                    Self::walk_dir(&path, pattern, matches);
                 } else if let Some(p) = path.to_str() {
                     if pattern.contains('*') {
                         if let Ok(glob) = glob::Pattern::new(pattern) {
@@ -89,7 +89,7 @@ impl Tool for GlobTool {
             .unwrap_or(context.cwd.clone());
 
         let mut matches = Vec::new();
-        self.walk_dir(&base_path, &glob_input.pattern, &mut matches);
+        Self::walk_dir(&base_path, &glob_input.pattern, &mut matches);
         matches.sort();
 
         Ok(ToolResult {

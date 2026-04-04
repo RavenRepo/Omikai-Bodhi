@@ -1,14 +1,18 @@
 [package]
-name = "theasus-bridge"
-description = "Bodhi Bridge - Remote Connection System"
+name = "theasus-plugins"
+description = "Bodhi Plugin System"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
 
+[features]
+default = []
+native-plugins = ["libloading"]
+
 [dependencies]
 theasus-core.workspace = true
-theasus-http-client.workspace = true
+theasus-tools.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
@@ -16,8 +20,9 @@ async-trait.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 uuid.workspace = true
-tokio-tungstenite.workspace = true
-futures.workspace = true
+libloading = { version = "0.8", optional = true }
+notify = "7.0"
 
 [dev-dependencies]
 tokio-test = "0.4"
+tempfile = "3.8"

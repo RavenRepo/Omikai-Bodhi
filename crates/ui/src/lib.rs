@@ -177,8 +177,8 @@ pub fn run_ui(app: &mut App, llm_callback: &mut impl FnMut(String) -> String) ->
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
-    // Set initial size
-    terminal.set_cursor(0, 0);
+    // Set initial cursor position
+    let _ = terminal.set_cursor_position((0, 0));
 
     loop {
         terminal.draw(|f| ui(f, app))?;
@@ -379,7 +379,7 @@ fn ui(frame: &mut Frame, app: &mut App) {
     // Move cursor to input position
     let input_row = chunks[2].y + 1;
     let input_col = chunks[2].x + 1 + app.input.len() as u16;
-    frame.set_cursor(input_col.min(chunks[2].right() - 1), input_row);
+    frame.set_cursor_position((input_col.min(chunks[2].right() - 1), input_row));
 
     // Status bar
     let status_text = format!(

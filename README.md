@@ -247,10 +247,12 @@ Bodhi follows a workspace-based architecture with specialized crates:
 | `ui` | Ratatui terminal UI |
 | `tools` | Tool implementations (bash, file ops, grep, glob) |
 | `commands` | Slash command implementations |
-| `agents` | Multi-agent system |
-| `mcp` | MCP client |
+| `agents` | Multi-agent system (Explore, Plan, Task, CodeReview) |
+| `mcp` | MCP client (JSON-RPC 2.0 protocol) |
+| `plugins` | Dynamic plugin system |
+| `workflows` | Workflow DSL engine |
 | `settings` | Configuration system |
-| `bridge` | Remote connections |
+| `bridge` | Remote connections (WebSocket) |
 | `permissions` | Permission system |
 
 ---

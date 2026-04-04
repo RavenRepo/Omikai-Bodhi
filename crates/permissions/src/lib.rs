@@ -110,13 +110,13 @@ impl PermissionManager {
             }
         }
 
-        for (source, tools) in &self.always_allow {
+        for tools in self.always_allow.values() {
             if tools.contains(&tool_name.to_string()) {
                 return PermissionResult::Allowed;
             }
         }
 
-        for (source, tools) in &self.always_ask {
+        for tools in self.always_ask.values() {
             if tools.contains(&tool_name.to_string()) {
                 return PermissionResult::Ask {
                     tool: tool_name.to_string(),

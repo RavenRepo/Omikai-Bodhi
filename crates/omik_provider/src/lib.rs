@@ -23,6 +23,7 @@ pub enum LlmProvider {
     },
 }
 
+#[allow(dead_code)]
 pub struct OmikProvider {
     http_client: Arc<dyn theasus_http_client::HttpClient>,
     api_key: String,
@@ -337,10 +338,6 @@ fn convert_message_openai(msg: &Message) -> OpenAiMessage {
                 .collect::<Vec<_>>()
                 .join("\n"),
         },
-        _ => OpenAiMessage {
-            role: "user".to_string(),
-            content: String::new(),
-        },
     }
 }
 
@@ -385,10 +382,6 @@ fn convert_message_anthropic(msg: &Message) -> AnthropicMessage {
                 })
                 .collect(),
         },
-        _ => AnthropicMessage {
-            role: "user".to_string(),
-            content: vec![],
-        },
     }
 }
 
@@ -430,10 +423,6 @@ fn convert_message_ollama(msg: &Message) -> OllamaMessage {
                 .collect::<Vec<_>>()
                 .join("\n"),
         },
-        _ => OllamaMessage {
-            role: "user".to_string(),
-            content: String::new(),
-        },
     }
 }
 
@@ -453,6 +442,7 @@ struct OpenAiMessage {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct OpenAiResponse {
     id: String,
     choices: Vec<OpenAiChoice>,
@@ -494,6 +484,7 @@ enum AnthropicContent {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct AnthropicResponse {
     id: String,
     content: Vec<AnthropicContent>,
