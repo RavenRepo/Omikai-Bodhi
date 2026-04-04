@@ -18,12 +18,8 @@ members = [
     "crates/settings",
     "crates/bridge",
     "crates/permissions",
-    # "crates/extension_api",
-    # "crates/bridge",
-    # "crates/mcp",
-    # "crates/settings",
-    # "crates/settings_macros",
-    # "crates/extension_api",
+    "crates/plugins",
+    "crates/workflows",
 ]
 resolver = "2"
 
@@ -53,6 +49,8 @@ theasus-mcp = { path = "crates/mcp" }
 theasus-settings = { path = "crates/settings" }
 theasus-bridge = { path = "crates/bridge" }
 theasus-permissions = { path = "crates/permissions" }
+theasus-plugins = { path = "crates/plugins" }
+theasus-workflows = { path = "crates/workflows" }
 
 # Core
 tokio = { version = "1", features = ["full"] }
