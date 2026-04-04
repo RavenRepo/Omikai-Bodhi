@@ -163,3 +163,75 @@ pub enum ToolError {
     #[error("Permission denied for tool {name}: {reason}")]
     PermissionDenied { name: String, reason: String },
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    fn test_context() -> ToolContext {
+        ToolContext {
+            cwd: std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")),
+            session_id: uuid::Uuid::new_v4(),
+            user_id: None,
+        }
+    }
+
+    #[test]
+    fn test_tool_registry_creation() {
+        let registry = ToolRegistry::new();
+        let tools = registry.list();
+        
+        assert!(!tools.is_empty(), "Registry should have default tools");
+        
+        let tool_names: Vec<&str> = tools.iter().map(|t| t.name.as_str()).collect();
+        assert!(tool_names.contains(&"bash"), "Should have bash tool");
+        assert!(tool_names.contains(&"file_read"), "Should have file_read tool");
+        assert!(tool_names.contains(&"grep"), "Should have grep tool");
+        assert!(tool_names.contains(&"glob"), "Should have glob tool");
+    }
+
+    #[test]
+    fn test_tool_definitions_have_schemas() {
+        let registry = ToolRegistry::new();
+        let tools = registry.list();
+        
+        for tool in &tools {
+            assert!(!tool.name.is_empty(), "Tool should have a name");
+            assert!(!tool.description.is_empty(), "Tool {} should have description", tool.name);
+            assert!(tool.input_schema.is_object(), "Tool {} should have object schema", tool.name);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_registry_execute_method() {
+        let registry = ToolRegistry::new();
+        
+        let result = registry.execute("glob", serde_json::json!({
+            "pattern": "*.toml"
+        })).await;
+        
+        assert!(result.is_ok(), "Registry execute should work");
+    }
+
+    #[tokio::test]
+    async fn test_tool_not_found() {
+        let registry = ToolRegistry::new();
+        
+        let result = registry.execute("nonexistent_tool", serde_json::json!({})).await;
+        
+        assert!(result.is_err(), "Should error for nonexistent tool");
+    }
+
+    #[test]
+    fn test_tool_result_builders() {
+        let success = ToolResult::success("Output text");
+        assert!(success.success);
+        assert_eq!(success.output, "Output text");
+        assert!(success.error.is_none());
+
+        let error = ToolResult::error("Error message");
+        assert!(!error.success);
+        assert!(error.error.is_some());
+    }
+}

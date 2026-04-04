@@ -97,11 +97,11 @@ fn main() -> Result<()> {
             app.run()?;
             Ok(())
         }
-        Commands::Query { prompt, stream } => {
+        Commands::Query { prompt, stream: _ } => {
             let prompt = prompt.join(" ");
             tracing::info!("Executing query: {}", prompt);
 
-            let mut settings = theasus_settings::Settings::load().unwrap_or_default();
+            let settings = theasus_settings::Settings::load().unwrap_or_default();
 
             if settings.api_key.is_none() {
                 eprintln!("Error: LLM not configured. Run: bodhi config-llm --provider openai --api-key YOUR_KEY --model gpt-4o");
@@ -148,7 +148,7 @@ fn main() -> Result<()> {
                     let llm_messages: Vec<theasus_language_model::Message> = query_engine
                         .get_messages()
                         .iter()
-                        .map(|msg| convert_core_to_llm(msg))
+                        .map(convert_core_to_llm)
                         .collect();
 
                     let result = rt.block_on(async {
