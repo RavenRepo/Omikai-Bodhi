@@ -77,6 +77,20 @@ impl ToolRegistry {
     pub fn list(&self) -> Vec<ToolDefinition> {
         self.tools.values().map(|tool| tool.definition()).collect()
     }
+
+    pub fn to_llm_tools(&self) -> Vec<theasus_language_model::ToolDefinition> {
+        self.tools
+            .values()
+            .map(|tool| {
+                let def = tool.definition();
+                theasus_language_model::ToolDefinition {
+                    name: def.name,
+                    description: def.description,
+                    input_schema: def.input_schema,
+                }
+            })
+            .collect()
+    }
 }
 
 impl Default for ToolRegistry {

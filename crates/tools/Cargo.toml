@@ -8,6 +8,7 @@ rust-version.workspace = true
 
 [dependencies]
 theasus-core.workspace = true
+theasus-language-model.workspace = true
 theasus-fs.workspace = true
 theasus-http-client.workspace = true
 serde.workspace = true

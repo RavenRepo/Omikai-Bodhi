@@ -5,8 +5,11 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 mod app;
+mod convert;
 mod llm;
 pub use llm::LlmManager;
+
+use convert::convert_core_to_llm;
 
 #[derive(Parser)]
 #[command(name = "bodhi")]
@@ -98,34 +101,175 @@ fn main() -> Result<()> {
             let prompt = prompt.join(" ");
             tracing::info!("Executing query: {}", prompt);
 
-            if stream {
-                println!("[streaming mode not yet implemented]");
+            let mut settings = theasus_settings::Settings::load().unwrap_or_default();
+
+            if settings.api_key.is_none() {
+                eprintln!("Error: LLM not configured. Run: bodhi config-llm --provider openai --api-key YOUR_KEY --model gpt-4o");
+                return Ok(());
+            }
+
+            let llm_manager = LlmManager::new();
+
+            if !llm_manager.is_configured() {
+                eprintln!("Error: LLM not configured. Run: bodhi config-llm --provider openai --api-key YOUR_KEY --model gpt-4o");
+                return Ok(());
             }
 
             let tool_registry = Arc::new(theasus_tools::ToolRegistry::new());
-            let tool = tool_registry.get("bash").unwrap();
-            let context = theasus_tools::ToolContext {
-                cwd: std::path::PathBuf::from("."),
-                session_id: Uuid::new_v4(),
-                user_id: None,
+
+            let config = theasus_core::engine::QueryEngineConfig {
+                model: settings.model.clone(),
+                max_tokens: Some(4096),
+                temperature: 0.7,
+                system_prompt: Some("You are Bodhi, an AI terminal assistant.".to_string()),
+                max_tool_calls: 10,
+                max_iterations: 10,
             };
 
-            let result = tokio::runtime::Runtime::new()?.block_on(async {
-                tool.execute(serde_json::json!({ "command": &prompt }), &context)
-                    .await
-            });
+            let mut query_engine = theasus_core::QueryEngine::new(config);
+            let session_id = Uuid::new_v4();
+            let cwd = std::env::current_dir().unwrap_or_default();
 
-            match result {
-                Ok(result) => {
-                    println!("{}", result.output);
-                    if let Some(error) = result.error {
-                        eprintln!("Error: {}", error);
+            query_engine.add_user_message(&prompt);
+
+            let rt = tokio::runtime::Runtime::new()?;
+
+            if let Some(client) = &llm_manager.client {
+                let tools = tool_registry.to_llm_tools();
+                let mut iterations = 0;
+
+                loop {
+                    iterations += 1;
+                    if iterations > 10 {
+                        println!("\n[Max iterations reached]");
+                        break;
+                    }
+
+                    let llm_messages: Vec<theasus_language_model::Message> = query_engine
+                        .get_messages()
+                        .iter()
+                        .map(|msg| convert_core_to_llm(msg))
+                        .collect();
+
+                    let result = rt.block_on(async {
+                        client.complete(theasus_language_model::CompletionRequest {
+                            model: settings.model.clone(),
+                            messages: llm_messages,
+                            max_tokens: Some(4096),
+                            temperature: Some(0.7),
+                            system: Some("You are Bodhi, an AI terminal assistant. You have access to tools to help with user queries.".to_string()),
+                            tools: if tools.is_empty() { None } else { Some(tools.clone()) },
+                            stream: false,
+                        }).await
+                    });
+
+                    match result {
+                        Ok(response) => {
+                            let message = response.message;
+
+                            match message {
+                                theasus_language_model::Message::Assistant(assistant_msg) => {
+                                    let text: String = assistant_msg
+                                        .content
+                                        .iter()
+                                        .filter_map(|block| {
+                                            if let theasus_language_model::ContentBlock::Text {
+                                                text,
+                                            } = block
+                                            {
+                                                Some(text.clone())
+                                            } else {
+                                                None
+                                            }
+                                        })
+                                        .collect::<Vec<_>>()
+                                        .join("\n");
+
+                                    if !text.is_empty() {
+                                        println!("{}", text);
+                                    }
+
+                                    query_engine.add_assistant_message(&text);
+
+                                    if !assistant_msg.tool_calls.is_empty() {
+                                        println!(
+                                            "\n[Executing {} tool(s)...]",
+                                            assistant_msg.tool_calls.len()
+                                        );
+
+                                        for tool_call in &assistant_msg.tool_calls {
+                                            let tool_name = &tool_call.name;
+                                            let tool_input = tool_call.input.clone();
+                                            let tool_id = &tool_call.id;
+
+                                            println!("  → {}: {:?}", tool_name, tool_input);
+
+                                            if let Some(tool) = tool_registry.get(tool_name) {
+                                                let context = theasus_tools::ToolContext {
+                                                    cwd: cwd.clone(),
+                                                    session_id,
+                                                    user_id: None,
+                                                };
+
+                                                let tool_result = rt.block_on(async {
+                                                    tool.execute(tool_input, &context).await
+                                                });
+
+                                                match tool_result {
+                                                    Ok(result) => {
+                                                        let result_text = if result.success {
+                                                            result.output
+                                                        } else {
+                                                            format!(
+                                                                "Error: {}",
+                                                                result.error.unwrap_or_default()
+                                                            )
+                                                        };
+
+                                                        println!(
+                                                            "  ← {}",
+                                                            result_text
+                                                                .chars()
+                                                                .take(100)
+                                                                .collect::<String>()
+                                                        );
+                                                        query_engine
+                                                            .add_tool_result(tool_id, &result_text);
+                                                    }
+                                                    Err(e) => {
+                                                        let error_text =
+                                                            format!("Tool execution error: {}", e);
+                                                        println!("  ← Error: {}", error_text);
+                                                        query_engine
+                                                            .add_tool_result(tool_id, &error_text);
+                                                    }
+                                                }
+                                            } else {
+                                                let error_text =
+                                                    format!("Tool not found: {}", tool_name);
+                                                println!("  ← Error: {}", error_text);
+                                                query_engine.add_tool_result(tool_id, &error_text);
+                                            }
+                                        }
+                                    } else {
+                                        println!("\n[Tokens: {}]", response.usage.total_tokens);
+                                        break;
+                                    }
+                                }
+                                _ => {
+                                    println!("[No assistant response]");
+                                    break;
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("Error: {}", e);
+                            break;
+                        }
                     }
                 }
-                Err(e) => {
-                    eprintln!("Error: {}", e);
-                }
             }
+
             Ok(())
         }
         Commands::Config { edit } => {

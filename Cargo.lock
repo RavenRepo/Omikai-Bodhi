@@ -2050,6 +2050,7 @@ dependencies = [
  "theasus-core",
  "theasus-fs",
  "theasus-http-client",
+ "theasus-language-model",
  "thiserror",
  "tokio",
  "tracing",

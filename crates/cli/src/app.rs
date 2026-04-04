@@ -111,6 +111,8 @@ impl App {
             max_tokens: Some(4096),
             temperature: 0.7,
             system_prompt: Some("You are Bodhi, an AI terminal assistant. You have access to tools to help you answer questions. When you need to use a tool, respond with a tool use block.".to_string()),
+            max_tool_calls: 10,
+            max_iterations: 10,
         };
 
         let query_engine = theasus_core::QueryEngine::new(config);
