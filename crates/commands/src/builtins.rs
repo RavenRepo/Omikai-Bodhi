@@ -428,3 +428,87 @@ impl Default for AgentsCommand {
         Self::new()
     }
 }
+
+pub struct SessionCommand;
+
+impl SessionCommand {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl fmt::Debug for SessionCommand {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SessionCommand").finish()
+    }
+}
+
+impl Clone for SessionCommand {
+    fn clone(&self) -> Self {
+        Self
+    }
+}
+
+#[async_trait]
+impl Command for SessionCommand {
+    fn name(&self) -> &str {
+        "session"
+    }
+
+    fn aliases(&self) -> &[&str] {
+        &["sess"]
+    }
+
+    fn description(&self) -> &str {
+        "Manage sessions (list, save)"
+    }
+
+    fn args_description(&self) -> Option<&str> {
+        Some("[list|save] [name]")
+    }
+
+    async fn execute(
+        &self,
+        args: &str,
+        _context: &CommandContext,
+    ) -> theasus_core::Result<CommandResult> {
+        let parts: Vec<&str> = args.split_whitespace().collect();
+        
+        let manager = theasus_settings::SessionManager::new()
+            .map_err(|e| theasus_core::TheasusError::Other(e.to_string()))?;
+        
+        match parts.first().map(|s| *s) {
+            Some("list") | None => {
+                let sessions = manager.list_sessions()
+                    .map_err(|e| theasus_core::TheasusError::Other(e.to_string()))?;
+                
+                if sessions.is_empty() {
+                    return Ok(CommandResult::success("No saved sessions"));
+                }
+                
+                let output = sessions.iter()
+                    .map(|s| format!("  {} - {} ({} messages)", s.id, s.name, s.messages.len()))
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                
+                Ok(CommandResult::success(format!("Saved sessions:\n{}", output)))
+            }
+            Some("save") => {
+                let name = parts.get(1).unwrap_or(&"default").to_string();
+                let session = manager.create_session(Some(&name));
+                
+                manager.save_session(&session)
+                    .map_err(|e| theasus_core::TheasusError::SessionSaveFailed(e.to_string()))?;
+                
+                Ok(CommandResult::success(format!("Session '{}' saved", name)))
+            }
+            _ => Ok(CommandResult::success("Usage: /session [list|save] [name]")),
+        }
+    }
+}
+
+impl Default for SessionCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}

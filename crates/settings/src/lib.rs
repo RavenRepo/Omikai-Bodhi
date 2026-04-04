@@ -1,8 +1,11 @@
 use directories::ProjectDirs;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::fs;
 use std::path::PathBuf;
+use std::time::{SystemTime, UNIX_EPOCH};
 use theasus_mcp::McpServerConfig;
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
@@ -198,5 +201,112 @@ impl SettingsBuilder {
 impl Default for SettingsBuilder {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Session {
+    pub id: Uuid,
+    pub name: String,
+    pub created_at: u64,
+    pub updated_at: u64,
+    pub messages: Vec<SessionMessage>,
+    pub metadata: SessionMetadata,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SessionMessage {
+    pub role: String,
+    pub content: String,
+    pub timestamp: u64,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct SessionMetadata {
+    pub model: Option<String>,
+    pub total_tokens: u32,
+    pub message_count: usize,
+}
+
+pub struct SessionManager {
+    sessions_dir: PathBuf,
+}
+
+impl SessionManager {
+    pub fn new() -> std::io::Result<Self> {
+        let config_dir = Settings::get_config_dir()
+            .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::NotFound, "No config dir"))?;
+        let sessions_dir = config_dir.join("sessions");
+        fs::create_dir_all(&sessions_dir)?;
+        Ok(Self { sessions_dir })
+    }
+
+    pub fn save_session(&self, session: &Session) -> std::io::Result<()> {
+        let path = self.sessions_dir.join(format!("{}.json", session.id));
+        let content = serde_json::to_string_pretty(session)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+        fs::write(&path, content)
+    }
+
+    pub fn load_session(&self, id: Uuid) -> std::io::Result<Option<Session>> {
+        let path = self.sessions_dir.join(format!("{}.json", id));
+        if path.exists() {
+            let content = fs::read_to_string(&path)?;
+            let session: Session = serde_json::from_str(&content)
+                .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+            Ok(Some(session))
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub fn list_sessions(&self) -> std::io::Result<Vec<Session>> {
+        let mut sessions = Vec::new();
+
+        for entry in fs::read_dir(&self.sessions_dir)? {
+            let entry = entry?;
+            let path = entry.path();
+            if path.extension().map_or(false, |ext| ext == "json") {
+                if let Ok(content) = fs::read_to_string(&path) {
+                    if let Ok(session) = serde_json::from_str::<Session>(&content) {
+                        sessions.push(session);
+                    }
+                }
+            }
+        }
+
+        sessions.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
+        Ok(sessions)
+    }
+
+    pub fn delete_session(&self, id: Uuid) -> std::io::Result<()> {
+        let path = self.sessions_dir.join(format!("{}.json", id));
+        if path.exists() {
+            fs::remove_file(path)
+        } else {
+            Ok(())
+        }
+    }
+
+    pub fn create_session(&self, name: Option<&str>) -> Session {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+
+        Session {
+            id: Uuid::new_v4(),
+            name: name.unwrap_or("Untitled Session").to_string(),
+            created_at: now,
+            updated_at: now,
+            messages: Vec::new(),
+            metadata: SessionMetadata::default(),
+        }
+    }
+}
+
+impl Default for SessionManager {
+    fn default() -> Self {
+        Self::new().expect("Failed to create session manager")
     }
 }

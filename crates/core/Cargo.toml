@@ -16,6 +16,7 @@ futures.workspace = true
 uuid.workspace = true
 chrono.workspace = true
 tracing.workspace = true
+reqwest.workspace = true
 
 [features]
 default = []
