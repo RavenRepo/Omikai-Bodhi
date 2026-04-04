@@ -1,10 +1,33 @@
 # Bodhi - AI-Native Terminal Application
 
+```
+   _____ _     _       _    _   _ _   _      _   _
+  |  ___(_)___| |__   \ \  / / | | | | | |    | \ | |
+  | |_  | / __| '_ \   \ \/ /  | | | | | |    |  \| |
+  |  _| | \__ \ | | |   \  /   | | | | | |    | |\  |
+  |_|   |_|___/_| |_|    |_|   |_|_| |_|___  |_| \_|
+                                                    
+  ____                 _                       _   
+ / ___|  __ _ _ __     | |    _____  _____  __  | |  
+| |  _ / _` | '__|    | |   / _ \ \/ / _ \ \ \ | |  
+| |_| || (_| | |      | |__|  __/>  <  __/  | ||_| 
+ \____| \__,_|_|      |_____\___/_/\_\___|  |_| (_)
+                                                   
+ _   _      _ _    __ _                       _    
+| \ | | ___| | |  / _| | ____      __        | |   
+|  \| |/ _ \ | | | |_| |/ _ \    / /        | |   
+| |\  |  __/ | | |  _| | (_) |  / /         |_|   
+|_| \_|\___|_|_| |_| |_|\___/  /_/          (_)  
+```
+
 <p align="center">
   <img src="https://img.shields.io/badge/version-0.1.0-blue.svg" alt="version">
   <img src="https://img.shields.io/badge/rust-1.75+-informational.svg" alt="rust">
   <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="license">
   <img src="https://img.shields.io/badge/status-active-success.svg" alt="status">
+  <a href="https://github.com/RavenRepo/Omikai-Bodhi/stargazers">
+    <img src="https://img.shields.io/github/stars/RavenRepo/Omikai-Bodhi?style=social" alt="stars">
+  </a>
 </p>
 
 <p align="center">
@@ -17,20 +40,28 @@
 
 ---
 
-## Overview
+## What is Bodhi?
 
-Bodhi is an AI-native terminal application built in Rust that brings the power of large language models to your command line. Built with a plugin architecture, it supports multiple LLM providers, MCP (Model Context Protocol) integration, multi-agent orchestration, and a rich tool system.
+Bodhi is an AI-native terminal application built in **Rust** that brings the power of large language models to your command line. With a plugin-style architecture, Bodhi supports multiple LLM providers, MCP (Model Context Protocol) integration, multi-agent orchestration, and a rich tool system.
 
-### Key Features
+> 🤖 **Powered by AI** · ⚡ **Built in Rust** · 🔧 **Extensible**
 
-- **Multi-Provider LLM Support** - Connect to OpenAI, Anthropic, Ollama, or custom endpoints
-- **Tool System** - Execute file operations, shell commands, grep, glob, and more
-- **Slash Commands** - Intuitive commands like `/help`, `/clear`, `/status`, `/model`
-- **Multi-Agent System** - Specialized agents for exploration, planning, and general tasks
-- **MCP Integration** - Connect to Model Context Protocol servers for extended capabilities
-- **Permission System** - Rule-based access control for tool execution
-- **Terminal UI** - Built with ratatui for a rich terminal experience
-- **Extensible Architecture** - Design inspired by Zed editor patterns
+---
+
+## Key Features
+
+| Feature | Description |
+|---------|-------------|
+| 🔮 **Multi-Provider LLM** | Connect to OpenAI, Anthropic, Ollama, or custom endpoints |
+| 🛠️ **Tool System** | Execute bash, file ops, grep, glob, and more |
+| ⌨️ **Slash Commands** | `/help`, `/clear`, `/status`, `/model`, and more |
+| 🤖 **Multi-Agent** | Specialized agents for exploration, planning, general tasks |
+| 🔗 **MCP Integration** | Connect to Model Context Protocol servers |
+| 🔒 **Permission System** | Rule-based access control for tool execution |
+| 🎨 **Terminal UI** | Rich TUI built with ratatui |
+| 📦 **Extensible** | Architecture inspired by Zed editor patterns |
+
+---
 
 ## Table of Contents
 
@@ -100,9 +131,28 @@ bodhi run
 ### 3. Using Bodhi
 
 ```
-Welcome to Bodhi! Type /help for available commands.
+╔════════════════════════════════════════════════════════════╗
+║  Welcome to Bodhi! AI-Native Terminal                   ║
+║  Type /help for available commands                      ║
+╚════════════════════════════════════════════════════════════╝
 
-> What is the purpose of Rust's ownership system?
+> What is Rust's ownership system?
+
+┌─────────────────────────────────────────────────────────────┐
+│                                                             │
+│   Rust's ownership system is a memory safety feature that  │
+│   eliminates the need for a garbage collector while        │
+│   preventing memory safety bugs like null pointer         │
+│   dereferences and data races.                              │
+│                                                             │
+│   Key concepts:                                             │
+│   • Ownership - Each value has a single owner               │
+│   • Borrowing - References can be borrowed                 │
+│   • Lifetimes - Ensures references are valid               │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+
+[Tokens: 287] >
 ```
 
 ---
@@ -139,13 +189,15 @@ Bodhi stores configuration at `~/.omikai/bodhi/config.json`:
 
 ### Permission Modes
 
-- `default` - Ask for permission on potentially dangerous operations
-- `accept_edits` - Accept file edit requests automatically
-- `bypass_permissions` - Skip all permission checks (use with caution)
-- `dont_ask` - Deny all permission prompts silently
-- `plan` - Run in planning mode with limited capabilities
-- `auto` - Automatically determine permissions
-- `bubble` - Bubble permission decisions up to parent context
+| Mode | Description |
+|------|-------------|
+| `default` | Ask for permission on potentially dangerous operations |
+| `accept_edits` | Accept file edit requests automatically |
+| `bypass_permissions` | Skip all permission checks |
+| `dont_ask` | Deny all permission prompts silently |
+| `plan` | Run in planning mode with limited capabilities |
+| `auto` | Automatically determine permissions |
+| `bubble` | Bubble permission decisions up to parent context |
 
 ---
 
@@ -154,36 +206,52 @@ Bodhi stores configuration at `~/.omikai/bodhi/config.json`:
 Bodhi follows a workspace-based architecture with specialized crates:
 
 ```
-Omikai-Bodhi/
-├── Cargo.toml                 # Workspace manifest
-├── crates/
-│   ├── cli/                   # CLI entry point
-│   ├── core/                  # Core types and QueryEngine
-│   ├── language_model/        # LLM trait abstraction
-│   ├── omik_provider/         # Multi-provider LLM client
-│   ├── http_client/           # HTTP abstraction trait
-│   ├── reqwest_client/         # reqwest implementation
-│   ├── fs/                    # Filesystem abstraction
-│   ├── fs_real/               # Real filesystem implementation
-│   ├── terminal/              # Terminal trait
-│   ├── terminal_crossterm/    # crossterm implementation
-│   ├── ui/                    # Ratatui UI
-│   ├── tools/                 # Tool implementations
-│   ├── commands/              # Slash commands
-│   ├── agents/                # Multi-agent system
-│   ├── mcp/                   # MCP client
-│   ├── settings/              # Settings system
-│   ├── bridge/                # Remote connections
-│   └── permissions/           # Permission system
+┌─────────────────────────────────────────────────────────────┐
+│                      Bodhi Architecture                    │
+└─────────────────────────────────────────────────────────────┘
+
+                            ┌─────────────┐
+                            │    CLI      │
+                            │  (cli)      │
+                            └──────┬──────┘
+                                   │
+         ┌─────────────────────────┼─────────────────────────┐
+         │                         │                         │
+    ┌────▼─────┐            ┌─────▼─────┐            ┌──────▼──────┐
+    │  Core    │            │  Tools    │            │ Commands   │
+    │ (engine) │            │           │            │            │
+    └────┬─────┘            └─────┬─────┘            └──────┬──────┘
+         │                        │                        │
+    ┌────▼────────────────────────▼─────────────────────────▼────┐
+    │                    language_model                         │
+    │         (LLM abstraction + provider implementations)       │
+    └────┬────────────────────────▲─────────────────────────┬────┘
+         │                        │                            │
+    ┌────▼─────┐            ┌─────▼─────┐              ┌──────▼──────┐
+    │  OpenAI  │            │ Anthropic │              │  Ollama     │
+    └──────────┘            └───────────┘              └─────────────┘
 ```
 
-### Key Concepts
+### Crate Overview
 
-- **QueryEngine** - Processes user input and manages conversation flow
-- **Tool** - Executable actions (bash, file read/write, grep, glob)
-- **Command** - User-initiated actions via `/command` syntax
-- **Agent** - Specialized AI assistants with specific capabilities
-- **MCP** - Model Context Protocol for external tool integration
+| Crate | Purpose |
+|-------|---------|
+| `cli` | CLI entry point and interactive terminal |
+| `core` | Core types, QueryEngine, state management |
+| `language_model` | LLM trait abstraction |
+| `omik_provider` | Multi-provider LLM client (OpenAI, Anthropic, Ollama, Custom) |
+| `http_client` | HTTP abstraction trait |
+| `reqwest_client` | reqwest implementation |
+| `fs` / `fs_real` | Filesystem abstraction |
+| `terminal` / `terminal_crossterm` | Terminal trait and implementation |
+| `ui` | Ratatui terminal UI |
+| `tools` | Tool implementations (bash, file ops, grep, glob) |
+| `commands` | Slash command implementations |
+| `agents` | Multi-agent system |
+| `mcp` | MCP client |
+| `settings` | Configuration system |
+| `bridge` | Remote connections |
+| `permissions` | Permission system |
 
 ---
 
@@ -229,9 +297,33 @@ bodhi config --check
 | `grep` | Search file contents |
 | `glob` | Find files by pattern |
 
-### Using Tools
+### Tools in Action
 
-Tools are automatically invoked based on LLM responses. The system handles tool execution and result processing transparently.
+```
+> Read all Rust files in src/
+
+┌─────────────────────────────────────────────────────────────┐
+│  TOOL: file_read                                           │
+│  ─────────────────────────────────────────────────────────│
+│  ✓ src/main.rs (245 lines)                                │
+│  ✓ src/lib.rs (156 lines)                                 │
+│  ✓ src/config.rs (89 lines)                                │
+│                                                             │
+│  Total: 3 files, 490 lines                                 │
+└─────────────────────────────────────────────────────────────┘
+
+> Search for "TODO" in the codebase
+
+┌─────────────────────────────────────────────────────────────┐
+│  TOOL: grep                                                │
+│  ─────────────────────────────────────────────────────────│
+│  ✓ src/main.rs:42: // TODO: Implement auth                │
+│  ✓ src/core.rs:156: // TODO: Add caching                  │
+│  ✓ src/tools.rs:89: // TODO: Error handling               │
+│                                                             │
+│  Total: 3 matches in 3 files                              │
+└─────────────────────────────────────────────────────────────┘
+```
 
 ---
 
@@ -273,26 +365,41 @@ cargo check
 
 ### Project Structure
 
-- `crates/cli/` - Command-line interface
-- `crates/core/` - Core types and logic
-- `crates/tools/` - Tool implementations
-- `crates/commands/` - Slash command implementations
-- `crates/agents/` - Agent implementations
-- `crates/ui/` - Terminal UI components
+```
+crates/
+├── cli/                    # Entry point and UI
+├── core/                   # Core types and QueryEngine
+├── language_model/         # LLM trait abstraction
+├── omik_provider/          # Multi-provider client
+├── http_client/            # HTTP trait
+├── reqwest_client/         # HTTP implementation
+├── fs/                     # Filesystem trait
+├── fs_real/                # Filesystem implementation
+├── terminal/               # Terminal trait
+├── terminal_crossterm/     # crossterm implementation
+├── ui/                     # Ratatui UI
+├── tools/                  # Tool implementations
+├── commands/              # Slash commands
+├── agents/                # Agent system
+├── mcp/                    # MCP client
+├── settings/              # Configuration
+├── bridge/                # Remote connections
+└── permissions/           # Permission system
+```
 
 ---
 
 ## Contributing
 
-Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md) for details on how to contribute.
+Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md) for details.
 
 ### Ways to Contribute
 
-- Report bugs
-- Suggest new features
-- Improve documentation
-- Submit pull requests
-- Create tools and agents
+- 🐛 Report bugs
+- 💡 Suggest features
+- 📝 Improve documentation
+- 🔧 Submit pull requests
+- 🛠️ Create tools and agents
 
 ---
 
@@ -315,4 +422,8 @@ MIT License - see [LICENSE](LICENSE) for details.
 - [GitHub Issues](https://github.com/RavenRepo/Omikai-Bodhi/issues)
 - [Discussions](https://github.com/RavenRepo/Omikai-Bodhi/discussions)
 
-<p align="center">Made with ❤️ by <a href="https://omikai.io">Omikai</a></p>
+---
+
+<p align="center">
+  Made with 🔥 by <a href="https://omikai.io">Omikai</a>
+</p>
