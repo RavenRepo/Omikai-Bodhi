@@ -2060,6 +2060,7 @@ name = "theasus-ui"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "chrono",
  "crossterm",
  "ratatui",
  "theasus-core",
