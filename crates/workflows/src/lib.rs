@@ -1,8 +1,41 @@
-//! Workflow DSL Engine
+//! # Theasus Workflow DSL Engine
 //!
 //! Provides a declarative workflow system for automating multi-step tasks.
 //! Workflows can be defined in YAML/JSON and include tools, agents, conditions,
 //! and parallel execution.
+//!
+//! ## Features
+//!
+//! - **YAML/JSON Definition**: Define workflows declaratively
+//! - **Step Types**: Tool, Agent, Condition, Parallel, Loop, Prompt
+//! - **Variable Interpolation**: Reference outputs from previous steps
+//! - **Triggers**: Manual, Schedule (cron), or File-based
+//!
+//! ## Example
+//!
+//! ```rust,ignore
+//! use theasus_workflows::{Workflow, WorkflowStep, WorkflowExecutor, WorkflowContext};
+//!
+//! // Parse workflow from YAML
+//! let yaml = r#"
+//! name: build-and-test
+//! steps:
+//!   - type: tool
+//!     name: compile
+//!     tool: bash
+//!     args:
+//!       command: cargo build
+//!   - type: tool
+//!     name: test
+//!     tool: bash
+//!     args:
+//!       command: cargo test
+//! "#;
+//!
+//! let workflow: Workflow = serde_yaml::from_str(yaml)?;
+//! let executor = WorkflowExecutor::new(context);
+//! let result = executor.execute(&workflow).await?;
+//! ```
 
 use futures::future::{join_all, BoxFuture, FutureExt};
 use serde::{Deserialize, Serialize};

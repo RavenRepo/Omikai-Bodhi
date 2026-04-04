@@ -1,3 +1,27 @@
+//! # Theasus Core
+//!
+//! Core functionality for the Theasus AI terminal application.
+//!
+//! This crate provides the foundational types and abstractions for:
+//! - Message handling (User, Assistant, System messages)
+//! - Query engine for LLM interactions
+//! - Application state management
+//! - Error handling
+//!
+//! ## Example
+//!
+//! ```rust,ignore
+//! use theasus_core::{new_theasus, Config};
+//!
+//! let config = Config {
+//!     api_key: Some("your-api-key".to_string()),
+//!     model: "gpt-4".to_string(),
+//!     ..Default::default()
+//! };
+//! let theasus = new_theasus(config).await?;
+//! let response = theasus.query("Hello, world!").await?;
+//! ```
+
 use chrono::Utc;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -15,11 +39,25 @@ pub use types::{
 
 pub use engine::QueryEngine;
 
+/// The main Theasus application instance.
+///
+/// Holds shared application state and configuration.
 pub struct Theasus {
+    /// Shared application state, thread-safe with RwLock
     pub state: Arc<RwLock<AppState>>,
+    /// Application configuration
     pub config: Config,
 }
 
+/// Create a new Theasus instance with the given configuration.
+///
+/// # Arguments
+///
+/// * `config` - The application configuration
+///
+/// # Returns
+///
+/// A new Theasus instance wrapped in a Result
 pub async fn new_theasus(config: Config) -> Result<Theasus> {
     Ok(Theasus {
         state: Arc::new(RwLock::new(AppState::default())),
@@ -28,6 +66,15 @@ pub async fn new_theasus(config: Config) -> Result<Theasus> {
 }
 
 impl Theasus {
+    /// Execute a query against the LLM.
+    ///
+    /// # Arguments
+    ///
+    /// * `input` - The user's query text
+    ///
+    /// # Returns
+    ///
+    /// A Response containing the LLM's reply and any tool calls
     pub async fn query(&self, input: &str) -> Result<Response> {
         let mut state = self.state.write().await;
         state.messages.push(Message::User(UserMessage {

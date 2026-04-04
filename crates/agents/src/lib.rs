@@ -1,8 +1,29 @@
-//! Multi-Agent System
+//! # Theasus Multi-Agent System
 //!
 //! Provides a framework for orchestrating multiple AI agents with different
 //! specializations. Each agent has its own system prompt and tool access,
 //! allowing for complex task decomposition and parallel execution.
+//!
+//! ## Features
+//!
+//! - **LlmAgent**: Base agent that runs an LLM loop with tool calling
+//! - **AgentOrchestrator**: Coordinates multiple agents with dependencies
+//! - **Built-in Agents**: GeneralPurpose, Explore, Plan, Task, CodeReview
+//!
+//! ## Example
+//!
+//! ```rust,ignore
+//! use theasus_agents::{AgentRegistry, AgentContext, LlmAgent};
+//! use std::sync::Arc;
+//!
+//! // Create context with tools
+//! let tool_registry = Arc::new(theasus_tools::ToolRegistry::new());
+//! let context = AgentContext::new(std::env::current_dir()?, tool_registry);
+//!
+//! // Execute an agent
+//! let agent = LlmAgent::explore();
+//! let result = agent.execute("Find all Rust files", &context).await?;
+//! ```
 
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};

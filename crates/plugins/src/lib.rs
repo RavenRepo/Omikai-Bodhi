@@ -1,7 +1,38 @@
-//! Plugin System
+//! # Theasus Plugin System
 //!
 //! Provides dynamic plugin loading for extending Theasus with custom tools,
 //! commands, and integrations. Supports both native (dylib) and WASM plugins.
+//!
+//! ## Features
+//!
+//! - **PluginManifest**: Metadata describing a plugin's capabilities
+//! - **Plugin Trait**: Interface for implementing plugins
+//! - **PluginManager**: Discovers, loads, and manages plugin lifecycle
+//! - **Hot Reload**: Supports dynamic loading/unloading of plugins
+//!
+//! ## Example
+//!
+//! ```rust,ignore
+//! use theasus_plugins::{PluginManager, PluginManifest, Plugin, PluginContext};
+//! use async_trait::async_trait;
+//!
+//! struct MyPlugin;
+//!
+//! #[async_trait]
+//! impl Plugin for MyPlugin {
+//!     fn manifest(&self) -> &PluginManifest {
+//!         // Return plugin metadata
+//!     }
+//!     
+//!     async fn on_load(&self, ctx: &PluginContext) -> Result<()> {
+//!         // Initialize plugin
+//!         Ok(())
+//!     }
+//! }
+//!
+//! let mut manager = PluginManager::new();
+//! manager.register(Box::new(MyPlugin)).await?;
+//! ```
 
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};

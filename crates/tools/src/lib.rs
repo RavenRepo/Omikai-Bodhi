@@ -1,3 +1,31 @@
+//! # Theasus Tools
+//!
+//! Tool system for the Theasus AI terminal application.
+//!
+//! This crate provides a registry of tools that can be executed by the AI:
+//! - **bash**: Execute shell commands
+//! - **file_read**: Read file contents
+//! - **file_write**: Write to files
+//! - **glob**: Find files by pattern
+//! - **grep**: Search file contents
+//!
+//! ## Example
+//!
+//! ```rust,ignore
+//! use theasus_tools::{ToolRegistry, ToolContext};
+//!
+//! let registry = ToolRegistry::new();
+//! let context = ToolContext {
+//!     cwd: std::env::current_dir()?,
+//!     session_id: uuid::Uuid::new_v4(),
+//!     user_id: None,
+//! };
+//!
+//! let result = registry.execute("glob", serde_json::json!({
+//!     "pattern": "**/*.rs"
+//! })).await?;
+//! ```
+
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -16,36 +44,56 @@ pub use file_write::FileWriteTool;
 pub use glob::GlobTool;
 pub use grep::GrepTool;
 
+/// Definition of a tool including its JSON schema for inputs.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolDefinition {
+    /// Unique name of the tool
     pub name: String,
+    /// Human-readable description of what the tool does
     pub description: String,
+    /// JSON Schema defining the expected input format
     pub input_schema: serde_json::Value,
 }
 
+/// Trait that all tools must implement.
+///
+/// Tools are async and can be executed with JSON input and a context.
 #[async_trait]
 pub trait Tool: Send + Sync {
+    /// Returns the unique name of this tool.
     fn name(&self) -> &str;
+    
+    /// Returns the full definition including schema.
     fn definition(&self) -> ToolDefinition;
 
+    /// Execute the tool with the given input and context.
     async fn execute(&self, input: serde_json::Value, context: &ToolContext) -> Result<ToolResult>;
 }
 
+/// Context provided to tools during execution.
 #[derive(Debug, Clone)]
 pub struct ToolContext {
+    /// Current working directory
     pub cwd: std::path::PathBuf,
+    /// Unique session identifier
     pub session_id: uuid::Uuid,
+    /// Optional user identifier
     pub user_id: Option<String>,
 }
 
+/// Result returned from tool execution.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolResult {
+    /// Whether the tool executed successfully
     pub success: bool,
+    /// Output from the tool
     pub output: String,
+    /// Error message if the tool failed
     pub error: Option<String>,
 }
 
 impl ToolResult {
+    /// Create a successful result with the given output.
     pub fn success(output: impl Into<String>) -> Self {
         Self {
             success: true,
@@ -54,6 +102,7 @@ impl ToolResult {
         }
     }
 
+    /// Create an error result with the given message.
     pub fn error(message: impl Into<String>) -> Self {
         let msg = message.into();
         Self {
