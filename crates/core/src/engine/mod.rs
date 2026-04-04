@@ -1,7 +1,9 @@
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::types::{ContentBlock, Message, ToolCall, Usage};
+use crate::TheasusError;
 
 #[derive(Debug, Clone)]
 pub struct QueryEngineConfig {
@@ -9,6 +11,8 @@ pub struct QueryEngineConfig {
     pub max_tokens: Option<usize>,
     pub temperature: f32,
     pub system_prompt: Option<String>,
+    pub max_tool_calls: usize,
+    pub max_iterations: usize,
 }
 
 impl Default for QueryEngineConfig {
@@ -18,6 +22,8 @@ impl Default for QueryEngineConfig {
             max_tokens: Some(4096),
             temperature: 0.7,
             system_prompt: Some("You are Bodhi, an AI terminal assistant.".to_string()),
+            max_tool_calls: 10,
+            max_iterations: 10,
         }
     }
 }
@@ -95,6 +101,29 @@ impl QueryEngine {
 
     pub fn get_messages(&self) -> &Vec<Message> {
         &self.messages
+    }
+
+    pub fn add_tool_result(&mut self, tool_use_id: &str, result: &str) {
+        self.messages.push(Message::User(crate::types::UserMessage {
+            id: Uuid::new_v4(),
+            content: vec![ContentBlock::ToolResult {
+                tool_use_id: tool_use_id.to_string(),
+                content: result.to_string(),
+            }],
+            timestamp: chrono::Utc::now(),
+        }));
+    }
+
+    pub fn add_tool_call_message(&mut self, tool_calls: Vec<ToolCall>) {
+        for tool_call in tool_calls {
+            self.messages.push(Message::User(crate::types::UserMessage {
+                id: Uuid::new_v4(),
+                content: vec![ContentBlock::ToolUse {
+                    tool: tool_call.clone(),
+                }],
+                timestamp: chrono::Utc::now(),
+            }));
+        }
     }
 }
 

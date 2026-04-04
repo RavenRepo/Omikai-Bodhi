@@ -107,6 +107,8 @@ impl App {
             max_tokens: Some(4096),
             temperature: 0.7,
             system_prompt: Some("You are Bodhi, an AI terminal assistant.".to_string()),
+            max_tool_calls: 10,
+            max_iterations: 10,
         };
 
         let query_engine = theasus_core::QueryEngine::new(config);
@@ -201,60 +203,154 @@ impl App {
         self.query_engine.add_user_message(input);
 
         if let Some(client) = &self.llm_manager.client {
-            let llm_messages: Vec<LlmMessage> = self
-                .query_engine
-                .get_messages()
-                .iter()
-                .map(convert_to_llm_message)
-                .collect();
+            let tools = self.tool_registry.to_llm_tools();
+            let mut iterations = 0;
+            let max_iterations = self.query_engine.config.max_iterations;
 
-            let client = self.llm_manager.client.clone();
-            let model = self.llm_manager.settings.model.clone();
-            let messages = llm_messages;
+            loop {
+                iterations += 1;
+                if iterations > max_iterations {
+                    println!("\n[Max iterations reached]");
+                    break;
+                }
 
-            let result = rt.block_on(async move {
-                if let Some(c) = client {
-                    c.complete(theasus_language_model::CompletionRequest {
-                        model,
-                        messages,
-                        max_tokens: Some(4096),
-                        temperature: Some(0.7),
-                        system: Some("You are Bodhi, an AI terminal assistant.".to_string()),
-                        tools: None,
-                        stream: false,
-                    })
-                    .await
+                let llm_messages: Vec<LlmMessage> = self
+                    .query_engine
+                    .get_messages()
+                    .iter()
+                    .map(convert_to_llm_message)
+                    .collect();
+
+                let client = self.llm_manager.client.clone();
+                let model = self.llm_manager.settings.model.clone();
+                let messages = llm_messages;
+                let tools_to_use = if tools.is_empty() {
+                    None
                 } else {
-                    Err(anyhow::anyhow!("No client"))
-                }
-            });
+                    Some(tools.clone())
+                };
 
-            match result {
-                Ok(response) => {
-                    let text = match response.message {
-                        theasus_language_model::Message::Assistant(msg) => msg
-                            .content
-                            .iter()
-                            .filter_map(|block| {
-                                if let theasus_language_model::ContentBlock::Text { text } = block {
-                                    Some(text.clone())
-                                } else {
-                                    None
+                let result = rt.block_on(async move {
+                    if let Some(c) = client {
+                        c.complete(theasus_language_model::CompletionRequest {
+                            model,
+                            messages,
+                            max_tokens: Some(4096),
+                            temperature: Some(0.7),
+                            system: Some("You are Bodhi, an AI terminal assistant. You have access to tools to help with user queries.".to_string()),
+                            tools: tools_to_use,
+                            stream: false,
+                        })
+                        .await
+                    } else {
+                        Err(anyhow::anyhow!("No client"))
+                    }
+                });
+
+                match result {
+                    Ok(response) => {
+                        let message = response.message;
+                        let usage = response.usage;
+
+                        match message {
+                            theasus_language_model::Message::Assistant(assistant_msg) => {
+                                let text: String = assistant_msg
+                                    .content
+                                    .iter()
+                                    .filter_map(|block| {
+                                        if let theasus_language_model::ContentBlock::Text { text } =
+                                            block
+                                        {
+                                            Some(text.clone())
+                                        } else {
+                                            None
+                                        }
+                                    })
+                                    .collect::<Vec<_>>()
+                                    .join("\n");
+
+                                if !text.is_empty() {
+                                    println!("{}", text);
                                 }
-                            })
-                            .collect::<Vec<_>>()
-                            .join("\n"),
-                        _ => String::new(),
-                    };
 
-                    println!("{}", text);
+                                self.query_engine.add_assistant_message(&text);
 
-                    self.query_engine.add_assistant_message(&text);
+                                if !assistant_msg.tool_calls.is_empty() {
+                                    println!(
+                                        "\n[Executing {} tool(s)...]",
+                                        assistant_msg.tool_calls.len()
+                                    );
 
-                    println!("\n[Tokens: {}]", response.usage.total_tokens);
-                }
-                Err(e) => {
-                    eprintln!("Error: {}", e);
+                                    for tool_call in &assistant_msg.tool_calls {
+                                        let tool_name = &tool_call.name;
+                                        let tool_input = tool_call.input.clone();
+                                        let tool_id = &tool_call.id;
+
+                                        println!("  → {}: {:?}", tool_name, tool_input);
+
+                                        if let Some(tool) = self.tool_registry.get(tool_name) {
+                                            let context = theasus_tools::ToolContext {
+                                                cwd: self.cwd.clone(),
+                                                session_id: self.session_id,
+                                                user_id: None,
+                                            };
+
+                                            let tool_result = rt.block_on(async {
+                                                tool.execute(tool_input, &context).await
+                                            });
+
+                                            match tool_result {
+                                                Ok(result) => {
+                                                    let result_text = if result.success {
+                                                        result.output
+                                                    } else {
+                                                        format!(
+                                                            "Error: {}",
+                                                            result.error.unwrap_or_default()
+                                                        )
+                                                    };
+
+                                                    println!(
+                                                        "  ← {}",
+                                                        result_text
+                                                            .chars()
+                                                            .take(100)
+                                                            .collect::<String>()
+                                                    );
+
+                                                    self.query_engine
+                                                        .add_tool_result(tool_id, &result_text);
+                                                }
+                                                Err(e) => {
+                                                    let error_text =
+                                                        format!("Tool execution error: {}", e);
+                                                    println!("  ← Error: {}", error_text);
+                                                    self.query_engine
+                                                        .add_tool_result(tool_id, &error_text);
+                                                }
+                                            }
+                                        } else {
+                                            let error_text =
+                                                format!("Tool not found: {}", tool_name);
+                                            println!("  ← Error: {}", error_text);
+                                            self.query_engine.add_tool_result(tool_id, &error_text);
+                                        }
+                                    }
+                                } else {
+                                    println!("\n[Tokens: {}]", usage.total_tokens);
+                                    break;
+                                }
+                            }
+                            _ => {
+                                println!("\n[No assistant response]");
+                                break;
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("Error: {}", e);
+                        break;
+                    }
                 }
             }
         } else {
