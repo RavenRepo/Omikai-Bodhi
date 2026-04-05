@@ -10,6 +10,7 @@ rust-version.workspace = true
 theasus-core.workspace = true
 theasus-tools.workspace = true
 theasus-settings.workspace = true
+theasus-session.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true

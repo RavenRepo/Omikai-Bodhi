@@ -23,6 +23,7 @@ members = [
     "crates/extension_api",
     "crates/knowledge",
     "crates/knowledge_local",
+    "crates/session",
     "examples",
 ]
 resolver = "2"
@@ -66,6 +67,7 @@ theasus-workflows = { path = "crates/workflows" }
 theasus-extension-api = { path = "crates/extension_api" }
 theasus-knowledge = { path = "crates/knowledge" }
 theasus-knowledge-local = { path = "crates/knowledge_local" }
+theasus-session = { path = "crates/session" }
 
 # Core
 tokio = { version = "1", features = ["full"] }
@@ -92,6 +94,9 @@ clap = { version = "4", features = ["derive", "env"] }
 # Terminal UI
 ratatui = "0.28"
 crossterm = "0.28"
+
+# Database
+rusqlite = { version = "0.32", features = ["bundled"] }
 
 # Utilities
 regex = "1"

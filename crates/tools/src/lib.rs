@@ -9,6 +9,11 @@
 //! - **glob**: Find files by pattern
 //! - **grep**: Search file contents
 //!
+//! ## Features
+//!
+//! - **Caching**: Read-only tool results are cached with TTL-based expiration
+//! - **Parallel Execution**: Independent tool calls can be executed in parallel
+//!
 //! ## Example
 //!
 //! ```rust,ignore
@@ -34,6 +39,7 @@ use theasus_core::{Result, TheasusError};
 
 pub mod ask_user;
 pub mod bash;
+pub mod cache;
 pub mod config;
 pub mod file_edit;
 pub mod file_read;
@@ -44,6 +50,7 @@ pub mod web_fetch;
 
 pub use ask_user::AskUserTool;
 pub use bash::BashTool;
+pub use cache::{CacheConfig, CacheStats, ToolCache};
 pub use config::ConfigTool;
 pub use file_edit::FileEditTool;
 pub use file_read::FileReadTool;
@@ -113,13 +120,51 @@ impl ToolResult {
     }
 }
 
+/// A tool call request for parallel execution.
+#[derive(Debug, Clone)]
+pub struct ToolCall {
+    pub name: String,
+    pub input: serde_json::Value,
+}
+
+impl ToolCall {
+    /// Create a new tool call.
+    pub fn new(name: impl Into<String>, input: serde_json::Value) -> Self {
+        Self {
+            name: name.into(),
+            input,
+        }
+    }
+}
+
+/// Result of a tool call including the tool name.
+#[derive(Debug, Clone)]
+pub struct ToolCallResult {
+    pub name: String,
+    pub result: ToolResult,
+}
+
 pub struct ToolRegistry {
     tools: HashMap<String, Arc<dyn Tool>>,
+    cache: Arc<ToolCache>,
 }
 
 impl ToolRegistry {
     pub fn new() -> Self {
-        let mut registry = Self { tools: HashMap::new() };
+        let mut registry = Self {
+            tools: HashMap::new(),
+            cache: Arc::new(ToolCache::new()),
+        };
+        registry.register_defaults();
+        registry
+    }
+
+    /// Create a registry with custom cache configuration.
+    pub fn with_cache_config(config: CacheConfig) -> Self {
+        let mut registry = Self {
+            tools: HashMap::new(),
+            cache: Arc::new(ToolCache::with_config(config)),
+        };
         registry.register_defaults();
         registry
     }
@@ -152,10 +197,29 @@ impl ToolRegistry {
         self.list()
     }
 
+    /// Get cache statistics.
+    pub fn cache_stats(&self) -> CacheStats {
+        self.cache.stats()
+    }
+
+    /// Clear the tool cache.
+    pub fn clear_cache(&self) {
+        self.cache.clear();
+    }
+
+    /// Invalidate cache after write operations.
+    pub fn invalidate_cache_on_write(&self) {
+        // After file writes, invalidate file_read and glob/grep caches
+        self.cache.invalidate_tool("file_read");
+        self.cache.invalidate_tool("glob");
+        self.cache.invalidate_tool("grep");
+    }
+
     pub async fn execute(&self, name: &str, input: serde_json::Value) -> Result<ToolResult> {
-        let tool = self
-            .get(name)
-            .ok_or_else(|| TheasusError::Other(format!("Tool not found: {}", name)))?;
+        // Verify tool exists first
+        if self.get(name).is_none() {
+            return Err(TheasusError::Other(format!("Tool not found: {}", name)));
+        }
 
         let context = ToolContext {
             cwd: std::env::current_dir().unwrap_or_default(),
@@ -163,7 +227,7 @@ impl ToolRegistry {
             user_id: None,
         };
 
-        tool.execute(input, &context).await
+        self.execute_with_cache(name, input, &context).await
     }
 
     pub async fn execute_with_context(
@@ -172,11 +236,89 @@ impl ToolRegistry {
         input: serde_json::Value,
         context: &ToolContext,
     ) -> Result<ToolResult> {
+        self.execute_with_cache(name, input, context).await
+    }
+
+    /// Execute a tool with caching for read-only tools.
+    async fn execute_with_cache(
+        &self,
+        name: &str,
+        input: serde_json::Value,
+        context: &ToolContext,
+    ) -> Result<ToolResult> {
+        // Check cache first
+        if let Some(cached) = self.cache.get(name, &input) {
+            tracing::debug!("Cache hit for tool: {}", name);
+            return Ok(cached);
+        }
+
         let tool = self
             .get(name)
             .ok_or_else(|| TheasusError::Other(format!("Tool not found: {}", name)))?;
 
-        tool.execute(input, context).await
+        let result = tool.execute(input.clone(), context).await?;
+
+        // Cache successful results for cacheable tools
+        if result.success {
+            self.cache.put(name, &input, result.clone());
+        }
+
+        // Invalidate caches on write operations
+        if name == "file_write" || name == "file_edit" {
+            self.invalidate_cache_on_write();
+        }
+
+        Ok(result)
+    }
+
+    /// Execute multiple tool calls in parallel.
+    ///
+    /// This is useful when you have multiple independent tool calls that can
+    /// be executed concurrently.
+    pub async fn execute_parallel(
+        &self,
+        calls: Vec<ToolCall>,
+        context: &ToolContext,
+    ) -> Vec<ToolCallResult> {
+        use futures::future::join_all;
+
+        let futures: Vec<_> = calls
+            .into_iter()
+            .map(|call| {
+                let cache = self.cache.clone();
+                let tool = self.get(&call.name);
+                let context = context.clone();
+                let name = call.name.clone();
+                let input = call.input.clone();
+
+                async move {
+                    // Check cache first
+                    if let Some(cached) = cache.get(&name, &input) {
+                        return ToolCallResult {
+                            name,
+                            result: cached,
+                        };
+                    }
+
+                    let result = match tool {
+                        Some(t) => match t.execute(input.clone(), &context).await {
+                            Ok(r) => {
+                                if r.success {
+                                    cache.put(&name, &input, r.clone());
+                                }
+                                r
+                            }
+                            Err(e) => ToolResult::error(e.to_string()),
+                        },
+                        None => ToolResult::error(format!("Tool not found: {}", name)),
+                    };
+
+                    ToolCallResult { name, result }
+                }
+            })
+            .collect();
+
+        join_all(futures).await
     }
 
     pub fn to_llm_tools(&self) -> Vec<theasus_language_model::ToolDefinition> {

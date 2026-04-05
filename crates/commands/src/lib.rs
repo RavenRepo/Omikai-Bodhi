@@ -19,6 +19,10 @@ pub use git::{BranchCommand, CommitCommand, DiffCommand, ReviewCommand};
 mod advanced;
 pub use advanced::{ExportCommand, McpCommand, MemoryCommand, PermissionsCommand, ResumeCommand};
 
+// Session commands
+mod session;
+pub use session::{SessionCommand, SessionsCommand};
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CommandResult {
     pub success: bool,
@@ -116,6 +120,13 @@ impl CommandRegistry {
         if let Some(cmd) = self.get("memory") {
             self.register_alias("mem", cmd.clone());
             self.register_alias("context", cmd.clone());
+        }
+
+        // Session commands
+        self.register(SessionsCommand::new());
+        self.register(SessionCommand::new());
+        if let Some(cmd) = self.get("session") {
+            self.register_alias("sess", cmd.clone());
         }
     }
 
