@@ -5,10 +5,37 @@ use ratatui::{
     backend::CrosstermBackend,
     layout::{Constraint, Direction, Layout},
     style::{Color, Style, Stylize},
+    text::{Line, Span},
     widgets::{Block, Borders, List, ListItem, Paragraph, ScrollbarState},
     Frame, Terminal,
 };
 use std::io;
+
+mod markdown;
+mod progress;
+mod theme;
+
+pub use markdown::{parse_markdown, render_markdown_line, MarkdownSegment};
+pub use progress::ProgressIndicator;
+pub use theme::Theme;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum UIMode {
+    #[default]
+    Normal,
+    Insert,
+    Command,
+}
+
+impl UIMode {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            UIMode::Normal => "NORMAL",
+            UIMode::Insert => "INSERT",
+            UIMode::Command => "COMMAND",
+        }
+    }
+}
 
 pub struct App {
     pub messages: Vec<MessageItem>,
@@ -20,6 +47,9 @@ pub struct App {
     pub running: bool,
     pub status: String,
     pub model: String,
+    pub mode: UIMode,
+    pub progress: ProgressIndicator,
+    pub theme: Theme,
 }
 
 #[derive(Clone)]
@@ -70,12 +100,12 @@ impl MessageItem {
         }
     }
 
-    fn color(&self) -> Color {
+    fn color(&self, theme: &Theme) -> Color {
         match self.role {
-            MessageRole::User => Color::Green,
-            MessageRole::Assistant => Color::Cyan,
-            MessageRole::System => Color::Yellow,
-            MessageRole::Tool => Color::Magenta,
+            MessageRole::User => theme.user_color,
+            MessageRole::Assistant => theme.assistant_color,
+            MessageRole::System => theme.system_color,
+            MessageRole::Tool => theme.tool_color,
         }
     }
 
@@ -103,6 +133,9 @@ impl App {
             running: true,
             status: "Ready".to_string(),
             model: model.to_string(),
+            mode: UIMode::default(),
+            progress: ProgressIndicator::new(),
+            theme: Theme::dark(),
         }
     }
 
@@ -163,6 +196,26 @@ impl App {
     pub fn set_model(&mut self, model: &str) {
         self.model = model.to_string();
     }
+
+    pub fn set_mode(&mut self, mode: UIMode) {
+        self.mode = mode;
+    }
+
+    pub fn set_theme(&mut self, theme: Theme) {
+        self.theme = theme;
+    }
+
+    pub fn start_progress(&mut self, message: impl Into<String>) {
+        self.progress.start(message);
+    }
+
+    pub fn stop_progress(&mut self) {
+        self.progress.stop();
+    }
+
+    pub fn tick_progress(&mut self) {
+        self.progress.tick();
+    }
 }
 
 impl Default for App {
@@ -213,10 +266,14 @@ pub fn run_ui(app: &mut App, llm_callback: &mut impl FnMut(String) -> String) ->
 
                             // Check for commands
                             if input.starts_with('/') {
+                                app.set_mode(UIMode::Command);
                                 handle_command(app, &input);
+                                app.set_mode(UIMode::Normal);
                             } else {
+                                app.start_progress("Processing...");
                                 app.set_status("Processing...");
                                 let response = llm_callback(input);
+                                app.stop_progress();
                                 app.add_message(MessageItem::assistant(response));
                                 app.set_status("Ready");
                             }
@@ -271,7 +328,7 @@ fn handle_command(app: &mut App, input: &str) {
     match cmd {
         "help" | "h" => {
             app.add_message(MessageItem::system(
-                "Commands: /help, /clear, /exit, /status, /model, /compact, /tools, /agents"
+                "Commands: /help, /clear, /exit, /status, /model, /compact, /tools, /agents, /theme"
                     .to_string(),
             ));
         }
@@ -325,6 +382,29 @@ fn handle_command(app: &mut App, input: &str) {
                 "Available agents: general-purpose, explore, plan".to_string(),
             ));
         }
+        "theme" => {
+            if let Some(theme_name) = parts.get(1) {
+                match *theme_name {
+                    "dark" => {
+                        app.set_theme(Theme::dark());
+                        app.add_message(MessageItem::system("Theme set to: dark".to_string()));
+                    }
+                    "light" => {
+                        app.set_theme(Theme::light());
+                        app.add_message(MessageItem::system("Theme set to: light".to_string()));
+                    }
+                    _ => {
+                        app.add_message(MessageItem::system(
+                            "Available themes: dark, light".to_string(),
+                        ));
+                    }
+                }
+            } else {
+                app.add_message(MessageItem::system(
+                    "Usage: /theme <dark|light>".to_string(),
+                ));
+            }
+        }
         _ => {
             app.add_message(MessageItem::system(format!("Unknown command: {}", cmd)));
         }
@@ -332,6 +412,7 @@ fn handle_command(app: &mut App, input: &str) {
 }
 
 fn ui(frame: &mut Frame, app: &mut App) {
+    let theme = &app.theme;
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -342,26 +423,49 @@ fn ui(frame: &mut Frame, app: &mut App) {
         ])
         .split(frame.area());
 
-    // Title bar
-    let title = Paragraph::new(" Bodhi AI Terminal ")
-        .style(Style::default().fg(Color::Cyan).bold())
+    // Title bar with mode indicator
+    let mode_str = app.mode.as_str();
+    let title_text = format!(" Bodhi AI Terminal  [{}] ", mode_str);
+    let title = Paragraph::new(title_text)
+        .style(Style::default().fg(theme.title_color).bold())
         .block(Block::default());
     frame.render_widget(title, chunks[0]);
 
-    // Messages area with scrollbar
+    // Messages area with markdown rendering
     let messages_area = chunks[1];
     let message_list: Vec<ListItem> = app
         .messages
         .iter()
         .skip(app.scroll_offset as usize)
         .map(|msg| {
-            let content = format!("{} {}", msg.prefix(), msg.content);
-            ListItem::new(content).style(Style::default().fg(msg.color()))
+            let prefix = msg.prefix();
+            let color = msg.color(theme);
+            let content = &msg.content;
+
+            // Check if content has markdown elements
+            if content.contains("```") || content.contains("**") || content.contains('`') {
+                let line = render_markdown_line(content, color, theme.code_block_color);
+                let spans: Vec<Span> = std::iter::once(Span::styled(
+                    format!("{} ", prefix),
+                    Style::default().fg(color),
+                ))
+                .chain(line.spans)
+                .collect();
+                ListItem::new(Line::from(spans))
+            } else {
+                let text = format!("{} {}", prefix, content);
+                ListItem::new(text).style(Style::default().fg(color))
+            }
         })
         .collect();
 
     let messages_widget = List::new(message_list)
-        .block(Block::default().borders(Borders::ALL).title("Messages"))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title("Messages")
+                .border_style(Style::default().fg(theme.border_color)),
+        )
         .style(Style::default().fg(Color::White));
     frame.render_widget(messages_widget, messages_area);
 
@@ -371,9 +475,9 @@ fn ui(frame: &mut Frame, app: &mut App) {
             Block::default()
                 .borders(Borders::ALL)
                 .title("Input")
-                .border_style(Style::default().fg(Color::Blue)),
+                .border_style(Style::default().fg(theme.border_color)),
         )
-        .style(Style::default().fg(Color::Yellow));
+        .style(Style::default().fg(theme.input_color));
     frame.render_widget(input_area, chunks[2]);
 
     // Move cursor to input position
@@ -381,15 +485,22 @@ fn ui(frame: &mut Frame, app: &mut App) {
     let input_col = chunks[2].x + 1 + app.input.len() as u16;
     frame.set_cursor_position((input_col.min(chunks[2].right() - 1), input_row));
 
-    // Status bar
+    // Status bar with progress indicator
+    let progress_text = if app.progress.active {
+        app.progress.render()
+    } else {
+        app.status.clone()
+    };
+
     let status_text = format!(
-        " Model: {} | Messages: {} | {} | Press Ctrl+C to quit ",
+        " Model: {} | Messages: {} | {} | [{}] | Ctrl+C quit ",
         app.model,
         app.messages.len(),
-        app.status
+        progress_text,
+        app.mode.as_str()
     );
     let status = Paragraph::new(status_text)
-        .style(Style::default().fg(Color::DarkGray))
+        .style(Style::default().fg(theme.status_color))
         .block(Block::default());
     frame.render_widget(status, chunks[3]);
 }
