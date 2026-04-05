@@ -33,3 +33,36 @@ pub struct DirEntry {
     pub file_name: String,
     pub is_dir: bool,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_fs_trait_exists() {
+        fn _assert_send_sync<T: Send + Sync>() {}
+        fn _assert_fs_trait_bounds<T: Fs>() {
+            _assert_send_sync::<T>();
+        }
+    }
+
+    #[test]
+    fn test_fs_metadata_creation() {
+        let metadata =
+            FsMetadata { len: 1024, is_dir: false, is_file: true, modified: None, created: None };
+        assert_eq!(metadata.len, 1024);
+        assert!(!metadata.is_dir);
+        assert!(metadata.is_file);
+    }
+
+    #[test]
+    fn test_dir_entry_creation() {
+        let entry = DirEntry {
+            path: std::path::PathBuf::from("/test/file.txt"),
+            file_name: "file.txt".to_string(),
+            is_dir: false,
+        };
+        assert_eq!(entry.file_name, "file.txt");
+        assert!(!entry.is_dir);
+    }
+}

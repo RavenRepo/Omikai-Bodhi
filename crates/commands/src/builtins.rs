@@ -310,9 +310,7 @@ impl Command for CompactCommand {
         _args: &str,
         _context: &CommandContext,
     ) -> theasus_core::Result<CommandResult> {
-        Ok(CommandResult::success(
-            "Conversation compacted (not yet implemented)",
-        ))
+        Ok(CommandResult::success("Conversation compacted (not yet implemented)"))
     }
 }
 
@@ -494,9 +492,7 @@ impl Command for ConfigCommand {
             );
             Ok(CommandResult::success(output))
         } else {
-            Ok(CommandResult::success(
-                "Config updating not yet implemented",
-            ))
+            Ok(CommandResult::success("Config updating not yet implemented"))
         }
     }
 }
@@ -595,9 +591,7 @@ impl Command for PwdCommand {
         _args: &str,
         context: &CommandContext,
     ) -> theasus_core::Result<CommandResult> {
-        Ok(CommandResult::success(
-            context.cwd.to_string_lossy().to_string(),
-        ))
+        Ok(CommandResult::success(context.cwd.to_string_lossy().to_string()))
     }
 }
 

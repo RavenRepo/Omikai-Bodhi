@@ -11,6 +11,14 @@ pub use builtins::{
     HelpCommand, HistoryCommand, ModelCommand, PwdCommand, StatusCommand, ToolsCommand,
 };
 
+// Git commands
+mod git;
+pub use git::{BranchCommand, CommitCommand, DiffCommand, ReviewCommand};
+
+// Advanced commands
+mod advanced;
+pub use advanced::{ExportCommand, McpCommand, MemoryCommand, PermissionsCommand, ResumeCommand};
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CommandResult {
     pub success: bool,
@@ -20,19 +28,11 @@ pub struct CommandResult {
 
 impl CommandResult {
     pub fn success(output: impl Into<String>) -> Self {
-        Self {
-            success: true,
-            output: output.into(),
-            error: None,
-        }
+        Self { success: true, output: output.into(), error: None }
     }
 
     pub fn error(msg: impl Into<String>) -> Self {
-        Self {
-            success: false,
-            output: String::new(),
-            error: Some(msg.into()),
-        }
+        Self { success: false, output: String::new(), error: Some(msg.into()) }
     }
 }
 
@@ -61,9 +61,7 @@ pub struct CommandRegistry {
 
 impl CommandRegistry {
     pub fn new() -> Self {
-        let mut registry = Self {
-            commands: HashMap::new(),
-        };
+        let mut registry = Self { commands: HashMap::new() };
         registry.register_builtins();
         registry
     }
@@ -96,6 +94,29 @@ impl CommandRegistry {
         self.register(EnvCommand::new());
         self.register(PwdCommand::new());
         self.register(HistoryCommand::new());
+
+        // Git commands
+        self.register(CommitCommand::new());
+        self.register(DiffCommand::new());
+        self.register(ReviewCommand::new());
+        self.register(BranchCommand::new());
+        if let Some(cmd) = self.get("branch") {
+            self.register_alias("br", cmd.clone());
+        }
+
+        // Advanced commands
+        self.register(McpCommand::new());
+        self.register(PermissionsCommand::new());
+        if let Some(cmd) = self.get("permissions") {
+            self.register_alias("perms", cmd.clone());
+        }
+        self.register(ResumeCommand::new());
+        self.register(ExportCommand::new());
+        self.register(MemoryCommand::new());
+        if let Some(cmd) = self.get("memory") {
+            self.register_alias("mem", cmd.clone());
+            self.register_alias("context", cmd.clone());
+        }
     }
 
     pub fn register<C: Command + 'static>(&mut self, command: C) {
@@ -114,10 +135,7 @@ impl CommandRegistry {
     }
 
     pub fn list(&self) -> Vec<(&str, &str)> {
-        self.commands
-            .values()
-            .map(|cmd| (cmd.name(), cmd.description()))
-            .collect()
+        self.commands.values().map(|cmd| (cmd.name(), cmd.description())).collect()
     }
 
     pub fn list_names(&self) -> Vec<String> {
@@ -147,3 +165,66 @@ pub enum CommandError {
 }
 
 pub type CommandResultT<T> = std::result::Result<T, CommandError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_command_registry_creation() {
+        let registry = CommandRegistry::new();
+        assert!(registry.get("help").is_some());
+        assert!(registry.get("clear").is_some());
+        assert!(registry.get("exit").is_some());
+    }
+
+    #[test]
+    fn test_command_aliases() {
+        let registry = CommandRegistry::new();
+        assert!(registry.get("h").is_some());
+        assert!(registry.get("?").is_some());
+        assert!(registry.get("q").is_some());
+        assert!(registry.get("quit").is_some());
+    }
+
+    #[test]
+    fn test_command_result_success() {
+        let result = CommandResult::success("Operation completed");
+        assert!(result.success);
+        assert_eq!(result.output, "Operation completed");
+        assert!(result.error.is_none());
+    }
+
+    #[test]
+    fn test_command_result_error() {
+        let result = CommandResult::error("Something went wrong");
+        assert!(!result.success);
+        assert!(result.output.is_empty());
+        assert_eq!(result.error, Some("Something went wrong".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_help_command_execution() {
+        let help_cmd = HelpCommand::new();
+        assert_eq!(help_cmd.name(), "help");
+        assert!(!help_cmd.description().is_empty());
+
+        let context =
+            CommandContext { cwd: std::path::PathBuf::from("."), session_id: uuid::Uuid::new_v4() };
+
+        let result = help_cmd.execute("", &context).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_clear_command_execution() {
+        let clear_cmd = ClearCommand::new();
+        assert_eq!(clear_cmd.name(), "clear");
+
+        let context =
+            CommandContext { cwd: std::path::PathBuf::from("."), session_id: uuid::Uuid::new_v4() };
+
+        let result = clear_cmd.execute("", &context).await;
+        assert!(result.is_ok());
+    }
+}

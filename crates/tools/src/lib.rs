@@ -32,17 +32,25 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use theasus_core::{Result, TheasusError};
 
+pub mod ask_user;
 pub mod bash;
+pub mod config;
+pub mod file_edit;
 pub mod file_read;
 pub mod file_write;
 pub mod glob;
 pub mod grep;
+pub mod web_fetch;
 
+pub use ask_user::AskUserTool;
 pub use bash::BashTool;
+pub use config::ConfigTool;
+pub use file_edit::FileEditTool;
 pub use file_read::FileReadTool;
 pub use file_write::FileWriteTool;
 pub use glob::GlobTool;
 pub use grep::GrepTool;
+pub use web_fetch::WebFetchTool;
 
 /// Definition of a tool including its JSON schema for inputs.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -62,7 +70,7 @@ pub struct ToolDefinition {
 pub trait Tool: Send + Sync {
     /// Returns the unique name of this tool.
     fn name(&self) -> &str;
-    
+
     /// Returns the full definition including schema.
     fn definition(&self) -> ToolDefinition;
 
@@ -95,21 +103,13 @@ pub struct ToolResult {
 impl ToolResult {
     /// Create a successful result with the given output.
     pub fn success(output: impl Into<String>) -> Self {
-        Self {
-            success: true,
-            output: output.into(),
-            error: None,
-        }
+        Self { success: true, output: output.into(), error: None }
     }
 
     /// Create an error result with the given message.
     pub fn error(message: impl Into<String>) -> Self {
         let msg = message.into();
-        Self {
-            success: false,
-            output: msg.clone(),
-            error: Some(msg),
-        }
+        Self { success: false, output: msg.clone(), error: Some(msg) }
     }
 }
 
@@ -119,19 +119,21 @@ pub struct ToolRegistry {
 
 impl ToolRegistry {
     pub fn new() -> Self {
-        let mut registry = Self {
-            tools: HashMap::new(),
-        };
+        let mut registry = Self { tools: HashMap::new() };
         registry.register_defaults();
         registry
     }
 
     pub fn register_defaults(&mut self) {
+        self.register(AskUserTool::new());
         self.register(BashTool::new());
+        self.register(ConfigTool::new());
+        self.register(FileEditTool::new());
         self.register(FileReadTool::new());
         self.register(FileWriteTool::new());
         self.register(GrepTool::new());
         self.register(GlobTool::new());
+        self.register(WebFetchTool::new());
     }
 
     pub fn register<T: Tool + 'static>(&mut self, tool: T) {
@@ -151,9 +153,9 @@ impl ToolRegistry {
     }
 
     pub async fn execute(&self, name: &str, input: serde_json::Value) -> Result<ToolResult> {
-        let tool = self.get(name).ok_or_else(|| {
-            TheasusError::Other(format!("Tool not found: {}", name))
-        })?;
+        let tool = self
+            .get(name)
+            .ok_or_else(|| TheasusError::Other(format!("Tool not found: {}", name)))?;
 
         let context = ToolContext {
             cwd: std::env::current_dir().unwrap_or_default(),
@@ -170,9 +172,9 @@ impl ToolRegistry {
         input: serde_json::Value,
         context: &ToolContext,
     ) -> Result<ToolResult> {
-        let tool = self.get(name).ok_or_else(|| {
-            TheasusError::Other(format!("Tool not found: {}", name))
-        })?;
+        let tool = self
+            .get(name)
+            .ok_or_else(|| TheasusError::Other(format!("Tool not found: {}", name)))?;
 
         tool.execute(input, context).await
     }
@@ -218,6 +220,7 @@ mod tests {
     use super::*;
     use std::path::PathBuf;
 
+    #[allow(dead_code)]
     fn test_context() -> ToolContext {
         ToolContext {
             cwd: std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")),
@@ -230,9 +233,9 @@ mod tests {
     fn test_tool_registry_creation() {
         let registry = ToolRegistry::new();
         let tools = registry.list();
-        
+
         assert!(!tools.is_empty(), "Registry should have default tools");
-        
+
         let tool_names: Vec<&str> = tools.iter().map(|t| t.name.as_str()).collect();
         assert!(tool_names.contains(&"bash"), "Should have bash tool");
         assert!(tool_names.contains(&"file_read"), "Should have file_read tool");
@@ -244,7 +247,7 @@ mod tests {
     fn test_tool_definitions_have_schemas() {
         let registry = ToolRegistry::new();
         let tools = registry.list();
-        
+
         for tool in &tools {
             assert!(!tool.name.is_empty(), "Tool should have a name");
             assert!(!tool.description.is_empty(), "Tool {} should have description", tool.name);
@@ -255,20 +258,25 @@ mod tests {
     #[tokio::test]
     async fn test_registry_execute_method() {
         let registry = ToolRegistry::new();
-        
-        let result = registry.execute("glob", serde_json::json!({
-            "pattern": "*.toml"
-        })).await;
-        
+
+        let result = registry
+            .execute(
+                "glob",
+                serde_json::json!({
+                    "pattern": "*.toml"
+                }),
+            )
+            .await;
+
         assert!(result.is_ok(), "Registry execute should work");
     }
 
     #[tokio::test]
     async fn test_tool_not_found() {
         let registry = ToolRegistry::new();
-        
+
         let result = registry.execute("nonexistent_tool", serde_json::json!({})).await;
-        
+
         assert!(result.is_err(), "Should error for nonexistent tool");
     }
 

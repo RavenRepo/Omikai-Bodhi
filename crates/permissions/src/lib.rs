@@ -48,6 +48,7 @@ pub struct ToolPermissionContext {
     pub session_id: uuid::Uuid,
 }
 
+#[derive(Debug)]
 pub struct PermissionManager {
     pub mode: PermissionMode,
     pub always_allow: HashMap<PermissionRuleSource, Vec<String>>,
@@ -73,22 +74,13 @@ impl PermissionManager {
     pub fn add_rule(&mut self, rule: PermissionRule) {
         match rule.behavior {
             PermissionBehavior::Allow => {
-                self.always_allow
-                    .entry(rule.source)
-                    .or_default()
-                    .push(rule.name);
+                self.always_allow.entry(rule.source).or_default().push(rule.name);
             }
             PermissionBehavior::Deny => {
-                self.always_deny
-                    .entry(rule.source)
-                    .or_default()
-                    .push(rule.name);
+                self.always_deny.entry(rule.source).or_default().push(rule.name);
             }
             PermissionBehavior::Ask => {
-                self.always_ask
-                    .entry(rule.source)
-                    .or_default()
-                    .push(rule.name);
+                self.always_ask.entry(rule.source).or_default().push(rule.name);
             }
         }
     }
@@ -142,32 +134,57 @@ impl PermissionManager {
 
     pub fn allow_tool(&mut self, tool: impl Into<String>) {
         let tool = tool.into();
-        self.always_allow
-            .entry(PermissionRuleSource::UserSettings)
-            .or_default()
-            .push(tool);
+        self.always_allow.entry(PermissionRuleSource::UserSettings).or_default().push(tool);
     }
 
     pub fn deny_tool(&mut self, tool: impl Into<String>) {
         let tool = tool.into();
-        self.always_deny
-            .entry(PermissionRuleSource::UserSettings)
-            .or_default()
-            .push(tool);
+        self.always_deny.entry(PermissionRuleSource::UserSettings).or_default().push(tool);
     }
 
     pub fn ask_tool(&mut self, tool: impl Into<String>) {
         let tool = tool.into();
-        self.always_ask
-            .entry(PermissionRuleSource::UserSettings)
-            .or_default()
-            .push(tool);
+        self.always_ask.entry(PermissionRuleSource::UserSettings).or_default().push(tool);
     }
 }
 
 impl Default for PermissionManager {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct PermissionRulesFile {
+    always_allow: HashMap<PermissionRuleSource, Vec<String>>,
+    always_deny: HashMap<PermissionRuleSource, Vec<String>>,
+    always_ask: HashMap<PermissionRuleSource, Vec<String>>,
+}
+
+impl PermissionManager {
+    pub fn save(&self, path: &std::path::Path) -> Result<(), PermissionError> {
+        let rules = PermissionRulesFile {
+            always_allow: self.always_allow.clone(),
+            always_deny: self.always_deny.clone(),
+            always_ask: self.always_ask.clone(),
+        };
+        let json = serde_json::to_string_pretty(&rules)
+            .map_err(|e| PermissionError::SerializationFailed(e.to_string()))?;
+        std::fs::write(path, json).map_err(|e| PermissionError::IoError(e.to_string()))?;
+        Ok(())
+    }
+
+    pub fn load(path: &std::path::Path) -> Result<Self, PermissionError> {
+        let json =
+            std::fs::read_to_string(path).map_err(|e| PermissionError::IoError(e.to_string()))?;
+        let rules: PermissionRulesFile = serde_json::from_str(&json)
+            .map_err(|e| PermissionError::SerializationFailed(e.to_string()))?;
+        Ok(Self {
+            mode: PermissionMode::default(),
+            always_allow: rules.always_allow,
+            always_deny: rules.always_deny,
+            always_ask: rules.always_ask,
+        })
     }
 }
 
@@ -202,20 +219,18 @@ pub enum PermissionError {
 
     #[error("Invalid rule: {0}")]
     InvalidRule(String),
+
+    #[error("IO error: {0}")]
+    IoError(String),
+
+    #[error("Serialization failed: {0}")]
+    SerializationFailed(String),
 }
 
 pub type PermissionResultT<T> = std::result::Result<T, PermissionError>;
 
 pub fn is_command_safe(command: &str) -> bool {
-    let dangerous_patterns = [
-        "rm -rf",
-        "rm /",
-        "mkfs",
-        "dd if=",
-        ":(){:|:&};:",
-        "wget",
-        "curl |",
-    ];
+    let dangerous_patterns = ["rm -rf", "rm /", "mkfs", "dd if=", ":(){:|:&};:", "wget", "curl |"];
 
     let lower = command.to_lowercase();
     for pattern in dangerous_patterns {
@@ -233,4 +248,99 @@ pub fn is_path_safe(path: &std::path::Path, allowed_dir: &std::path::Path) -> bo
         }
     }
     false
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    #[test]
+    fn test_permission_mode_default() {
+        let mode = PermissionMode::default();
+        assert_eq!(mode, PermissionMode::Default);
+    }
+
+    #[test]
+    fn test_permission_check_allow() {
+        let mut manager = PermissionManager::new().with_mode(PermissionMode::Default);
+        manager.allow_tool("bash");
+
+        let context = ToolPermissionContext {
+            tool_name: "bash".to_string(),
+            input: serde_json::json!({}),
+            cwd: PathBuf::from("/tmp"),
+            session_id: uuid::Uuid::new_v4(),
+        };
+
+        let result = manager.check_permission("bash", &context);
+        assert!(result.is_allowed());
+    }
+
+    #[test]
+    fn test_permission_check_deny() {
+        let mut manager = PermissionManager::new();
+        manager.deny_tool("dangerous_tool");
+
+        let context = ToolPermissionContext {
+            tool_name: "dangerous_tool".to_string(),
+            input: serde_json::json!({}),
+            cwd: PathBuf::from("/tmp"),
+            session_id: uuid::Uuid::new_v4(),
+        };
+
+        let result = manager.check_permission("dangerous_tool", &context);
+        assert!(result.is_denied());
+    }
+
+    #[test]
+    fn test_is_command_safe() {
+        assert!(is_command_safe("ls -la"));
+        assert!(is_command_safe("cat file.txt"));
+        assert!(!is_command_safe("rm -rf /"));
+        assert!(!is_command_safe("rm -rf"));
+        assert!(!is_command_safe("dd if=/dev/zero"));
+    }
+
+    #[test]
+    fn test_is_path_safe() {
+        let cwd = std::env::current_dir().unwrap();
+        assert!(is_path_safe(&cwd, &cwd));
+
+        let parent = cwd.parent().map(|p| p.to_path_buf());
+        if let Some(parent) = parent {
+            assert!(!is_path_safe(&parent, &cwd));
+        }
+    }
+
+    #[test]
+    fn test_bypass_permissions_mode() {
+        let manager = PermissionManager::new().with_mode(PermissionMode::BypassPermissions);
+        let context = ToolPermissionContext {
+            tool_name: "any_tool".to_string(),
+            input: serde_json::json!({}),
+            cwd: PathBuf::from("/tmp"),
+            session_id: uuid::Uuid::new_v4(),
+        };
+        let result = manager.check_permission("any_tool", &context);
+        assert!(result.is_allowed());
+    }
+
+    #[test]
+    fn test_permission_result_helpers() {
+        let allowed = PermissionResult::Allowed;
+        assert!(allowed.is_allowed());
+        assert!(!allowed.is_denied());
+        assert!(!allowed.requires_ask());
+
+        let denied = PermissionResult::Denied { reason: "test".to_string() };
+        assert!(!denied.is_allowed());
+        assert!(denied.is_denied());
+        assert!(!denied.requires_ask());
+
+        let ask = PermissionResult::Ask { tool: "test".to_string(), context: "ctx".to_string() };
+        assert!(!ask.is_allowed());
+        assert!(!ask.is_denied());
+        assert!(ask.requires_ask());
+    }
 }

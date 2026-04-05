@@ -61,36 +61,23 @@ impl Tool for FileReadTool {
             })?;
 
         let file_path = PathBuf::from(&file_input.path);
-        let full_path = if file_path.is_absolute() {
-            file_path
-        } else {
-            context.cwd.join(&file_path)
-        };
+        let full_path =
+            if file_path.is_absolute() { file_path } else { context.cwd.join(&file_path) };
 
         let content =
-            tokio::fs::read_to_string(&full_path)
-                .await
-                .map_err(|e| crate::TheasusError::Tool {
-                    tool: "file_read".to_string(),
-                    reason: format!("Failed to read file: {}", e),
-                })?;
+            tokio::fs::read_to_string(&full_path).await.map_err(|e| crate::TheasusError::Tool {
+                tool: "file_read".to_string(),
+                reason: format!("Failed to read file: {}", e),
+            })?;
 
         let lines: Vec<&str> = content.lines().collect();
         let offset = file_input.offset.unwrap_or(0);
         let limit = file_input.limit.unwrap_or(lines.len());
 
-        let selected: String = lines
-            .into_iter()
-            .skip(offset)
-            .take(limit)
-            .collect::<Vec<_>>()
-            .join("\n");
+        let selected: String =
+            lines.into_iter().skip(offset).take(limit).collect::<Vec<_>>().join("\n");
 
-        Ok(ToolResult {
-            success: true,
-            output: selected,
-            error: None,
-        })
+        Ok(ToolResult { success: true, output: selected, error: None })
     }
 }
 

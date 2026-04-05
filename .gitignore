@@ -2,8 +2,8 @@
 /target/
 **/target/
 
-# Cargo lock file (optional - uncomment if you want to version lock)
-# Cargo.lock
+# Cargo lock file (should be committed for binary crates)
+Cargo.lock
 
 # IDE
 .idea/

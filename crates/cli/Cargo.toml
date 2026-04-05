@@ -5,6 +5,12 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
+repository = "https://github.com/RavenRepo/Omikai-Bodhi"
+homepage = "https://github.com/RavenRepo/Omikai-Bodhi"
+documentation = "https://docs.rs/theasus-cli"
+keywords = ["ai", "terminal", "llm", "cli", "assistant"]
+categories = ["command-line-utilities", "development-tools"]
+readme = "../../README.md"
 
 [[bin]]
 name = "bodhi"
@@ -24,6 +30,7 @@ theasus-agents.workspace = true
 theasus-settings.workspace = true
 tokio.workspace = true
 clap.workspace = true
+clap_complete = "4"
 tracing.workspace = true
 tracing-subscriber.workspace = true
 anyhow.workspace = true

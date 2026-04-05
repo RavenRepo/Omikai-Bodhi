@@ -95,11 +95,7 @@ impl Tool for GlobTool {
         Ok(ToolResult {
             success: !matches.is_empty(),
             output: matches.join("\n"),
-            error: if matches.is_empty() {
-                Some("No files matched".to_string())
-            } else {
-                None
-            },
+            error: if matches.is_empty() { Some("No files matched".to_string()) } else { None },
         })
     }
 }

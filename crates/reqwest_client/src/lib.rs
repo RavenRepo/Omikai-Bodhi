@@ -9,10 +9,7 @@ pub struct ReqwestClient {
 impl ReqwestClient {
     pub fn new() -> Result<Self, reqwest::Error> {
         let client = Client::builder().build()?;
-        Ok(Self {
-            client,
-            api_key: None,
-        })
+        Ok(Self { client, api_key: None })
     }
 
     pub fn with_api_key(mut self, api_key: &str) -> Self {

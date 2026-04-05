@@ -30,13 +30,9 @@ impl BashTool {
         cmd.arg("-c").arg(command).current_dir(cwd);
 
         if background {
-            cmd.stdin(Stdio::null())
-                .stdout(Stdio::piped())
-                .stderr(Stdio::piped());
+            cmd.stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
         } else {
-            cmd.stdin(Stdio::piped())
-                .stdout(Stdio::piped())
-                .stderr(Stdio::piped());
+            cmd.stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped());
         }
 
         let output = if let Some(timeout) = timeout {
@@ -71,11 +67,7 @@ impl BashTool {
         Ok(ToolResult {
             success: output.status.success(),
             output: stdout,
-            error: if stderr.is_empty() {
-                None
-            } else {
-                Some(stderr)
-            },
+            error: if stderr.is_empty() { None } else { Some(stderr) },
         })
     }
 }

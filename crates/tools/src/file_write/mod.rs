@@ -61,18 +61,11 @@ impl Tool for FileWriteTool {
             })?;
 
         let file_path = PathBuf::from(&file_input.path);
-        let full_path = if file_path.is_absolute() {
-            file_path
-        } else {
-            context.cwd.join(&file_path)
-        };
+        let full_path =
+            if file_path.is_absolute() { file_path } else { context.cwd.join(&file_path) };
 
         let result = if file_input.append.unwrap_or(false) {
-            tokio::fs::OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open(&full_path)
-                .await
+            tokio::fs::OpenOptions::new().create(true).append(true).open(&full_path).await
         } else {
             tokio::fs::OpenOptions::new()
                 .create(true)
@@ -85,12 +78,12 @@ impl Tool for FileWriteTool {
         match result {
             Ok(mut file) => {
                 use tokio::io::AsyncWriteExt;
-                file.write_all(file_input.content.as_bytes())
-                    .await
-                    .map_err(|e| crate::TheasusError::Tool {
+                file.write_all(file_input.content.as_bytes()).await.map_err(|e| {
+                    crate::TheasusError::Tool {
                         tool: "file_write".to_string(),
                         reason: format!("Failed to write file: {}", e),
-                    })?;
+                    }
+                })?;
 
                 Ok(ToolResult {
                     success: true,

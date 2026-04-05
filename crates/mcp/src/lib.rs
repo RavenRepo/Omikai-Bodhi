@@ -9,6 +9,7 @@ use std::collections::HashMap;
 use std::process::Stdio;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::time::Duration;
 use theasus_core::Result;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, Command};
@@ -25,6 +26,37 @@ pub const MCP_PROTOCOL_VERSION: &str = "2024-11-05";
 // Configuration
 // ============================================================================
 
+/// Configuration for exponential backoff reconnection attempts
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReconnectionConfig {
+    pub max_attempts: u32,
+    pub initial_delay_ms: u64,
+    pub max_delay_ms: u64,
+    pub backoff_multiplier: f64,
+}
+
+impl Default for ReconnectionConfig {
+    fn default() -> Self {
+        Self {
+            max_attempts: 5,
+            initial_delay_ms: 1000,
+            max_delay_ms: 30000,
+            backoff_multiplier: 2.0,
+        }
+    }
+}
+
+/// Transport type for MCP server connections
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+#[serde(tag = "type", rename_all = "lowercase")]
+pub enum McpTransport {
+    #[default]
+    Stdio,
+    Sse {
+        url: String,
+    },
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct McpServerConfig {
     pub name: String,
@@ -33,6 +65,8 @@ pub struct McpServerConfig {
     pub env: HashMap<String, String>,
     #[serde(default)]
     pub timeout_ms: Option<u64>,
+    #[serde(default)]
+    pub transport: McpTransport,
 }
 
 impl McpServerConfig {
@@ -43,6 +77,7 @@ impl McpServerConfig {
             args: vec![],
             env: HashMap::new(),
             timeout_ms: Some(30000),
+            transport: McpTransport::default(),
         }
     }
 
@@ -53,6 +88,11 @@ impl McpServerConfig {
 
     pub fn with_env(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         self.env.insert(key.into(), value.into());
+        self
+    }
+
+    pub fn with_transport(mut self, transport: McpTransport) -> Self {
+        self.transport = transport;
         self
     }
 }
@@ -72,12 +112,7 @@ pub struct JsonRpcRequest {
 
 impl JsonRpcRequest {
     pub fn new(id: u64, method: impl Into<String>, params: Option<serde_json::Value>) -> Self {
-        Self {
-            jsonrpc: "2.0".to_string(),
-            id,
-            method: method.into(),
-            params,
-        }
+        Self { jsonrpc: "2.0".to_string(), id, method: method.into(), params }
     }
 }
 
@@ -109,11 +144,7 @@ pub struct JsonRpcNotification {
 
 impl JsonRpcNotification {
     pub fn new(method: impl Into<String>, params: Option<serde_json::Value>) -> Self {
-        Self {
-            jsonrpc: "2.0".to_string(),
-            method: method.into(),
-            params,
-        }
+        Self { jsonrpc: "2.0".to_string(), method: method.into(), params }
     }
 }
 
@@ -185,9 +216,17 @@ pub struct McpCallToolResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum McpContent {
-    Text { text: String },
-    Image { data: String, #[serde(rename = "mimeType")] mime_type: String },
-    Resource { resource: McpResource },
+    Text {
+        text: String,
+    },
+    Image {
+        data: String,
+        #[serde(rename = "mimeType")]
+        mime_type: String,
+    },
+    Resource {
+        resource: McpResource,
+    },
 }
 
 impl McpContent {
@@ -293,12 +332,14 @@ impl McpClient {
 
         let mut child = cmd.spawn()?;
 
-        let stdin = child.stdin.take().ok_or_else(|| {
-            theasus_core::TheasusError::Other("Failed to get stdin".to_string())
-        })?;
-        let stdout = child.stdout.take().ok_or_else(|| {
-            theasus_core::TheasusError::Other("Failed to get stdout".to_string())
-        })?;
+        let stdin = child
+            .stdin
+            .take()
+            .ok_or_else(|| theasus_core::TheasusError::Other("Failed to get stdin".to_string()))?;
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| theasus_core::TheasusError::Other("Failed to get stdout".to_string()))?;
 
         // Create channel for sending to stdin
         let (stdin_tx, mut stdin_rx) = mpsc::channel::<String>(100);
@@ -353,7 +394,11 @@ impl McpClient {
         Ok(())
     }
 
-    async fn send_request(&self, method: &str, params: Option<serde_json::Value>) -> Result<JsonRpcResponse> {
+    async fn send_request(
+        &self,
+        method: &str,
+        params: Option<serde_json::Value>,
+    ) -> Result<JsonRpcResponse> {
         let id = self.next_id();
         let request = JsonRpcRequest::new(id, method, params);
         let request_str = serde_json::to_string(&request)?;
@@ -361,22 +406,20 @@ impl McpClient {
         let (tx, rx) = oneshot::channel();
         self.pending.write().await.insert(id, tx);
 
-        let stdin_tx = self.stdin_tx.as_ref().ok_or_else(|| {
-            theasus_core::TheasusError::Other("Not connected".to_string())
-        })?;
+        let stdin_tx = self
+            .stdin_tx
+            .as_ref()
+            .ok_or_else(|| theasus_core::TheasusError::Other("Not connected".to_string()))?;
 
         stdin_tx.send(request_str).await.map_err(|e| {
             theasus_core::TheasusError::Other(format!("Failed to send request: {}", e))
         })?;
 
         let timeout = self.config.timeout_ms.unwrap_or(30000);
-        let response = tokio::time::timeout(
-            std::time::Duration::from_millis(timeout),
-            rx,
-        )
-        .await
-        .map_err(|_| theasus_core::TheasusError::Other("Request timeout".to_string()))?
-        .map_err(|_| theasus_core::TheasusError::Other("Request cancelled".to_string()))?;
+        let response = tokio::time::timeout(std::time::Duration::from_millis(timeout), rx)
+            .await
+            .map_err(|_| theasus_core::TheasusError::Other("Request timeout".to_string()))?
+            .map_err(|_| theasus_core::TheasusError::Other("Request cancelled".to_string()))?;
 
         if let Some(err) = &response.error {
             return Err(theasus_core::TheasusError::Other(format!(
@@ -388,13 +431,18 @@ impl McpClient {
         Ok(response)
     }
 
-    async fn send_notification(&self, method: &str, params: Option<serde_json::Value>) -> Result<()> {
+    async fn send_notification(
+        &self,
+        method: &str,
+        params: Option<serde_json::Value>,
+    ) -> Result<()> {
         let notification = JsonRpcNotification::new(method, params);
         let notification_str = serde_json::to_string(&notification)?;
 
-        let stdin_tx = self.stdin_tx.as_ref().ok_or_else(|| {
-            theasus_core::TheasusError::Other("Not connected".to_string())
-        })?;
+        let stdin_tx = self
+            .stdin_tx
+            .as_ref()
+            .ok_or_else(|| theasus_core::TheasusError::Other("Not connected".to_string()))?;
 
         stdin_tx.send(notification_str).await.map_err(|e| {
             theasus_core::TheasusError::Other(format!("Failed to send notification: {}", e))
@@ -429,10 +477,7 @@ impl McpClient {
         // Send initialized notification
         self.send_notification("notifications/initialized", None).await?;
 
-        tracing::info!(
-            "MCP server initialized: {:?}",
-            self.server_info.as_ref().map(|s| &s.name)
-        );
+        tracing::info!("MCP server initialized: {:?}", self.server_info.as_ref().map(|s| &s.name));
 
         Ok(())
     }
@@ -467,10 +512,7 @@ impl McpClient {
             return Ok(call_response);
         }
 
-        Ok(McpCallToolResponse {
-            content: vec![],
-            is_error: Some(true),
-        })
+        Ok(McpCallToolResponse { content: vec![], is_error: Some(true) })
     }
 
     pub async fn list_resources(&self) -> Result<Vec<McpResource>> {
@@ -557,24 +599,72 @@ impl McpClient {
     }
 
     pub fn has_tools(&self) -> bool {
-        self.capabilities
-            .as_ref()
-            .and_then(|c| c.tools.as_ref())
-            .is_some()
+        self.capabilities.as_ref().and_then(|c| c.tools.as_ref()).is_some()
     }
 
     pub fn has_resources(&self) -> bool {
-        self.capabilities
-            .as_ref()
-            .and_then(|c| c.resources.as_ref())
-            .is_some()
+        self.capabilities.as_ref().and_then(|c| c.resources.as_ref()).is_some()
     }
 
     pub fn has_prompts(&self) -> bool {
-        self.capabilities
-            .as_ref()
-            .and_then(|c| c.prompts.as_ref())
-            .is_some()
+        self.capabilities.as_ref().and_then(|c| c.prompts.as_ref()).is_some()
+    }
+
+    /// Attempt to reconnect to the MCP server with exponential backoff
+    pub async fn reconnect(&mut self) -> Result<()> {
+        self.reconnect_with_config(ReconnectionConfig::default()).await
+    }
+
+    /// Attempt to reconnect to the MCP server with custom configuration
+    pub async fn reconnect_with_config(&mut self, config: ReconnectionConfig) -> Result<()> {
+        let mut delay = config.initial_delay_ms;
+
+        for attempt in 0..config.max_attempts {
+            // Ensure we're disconnected before attempting to reconnect
+            let _ = self.disconnect().await;
+
+            match self.connect().await {
+                Ok(_) => {
+                    tracing::info!(
+                        "Reconnected to MCP server {} on attempt {}",
+                        self.config.name,
+                        attempt + 1
+                    );
+                    return Ok(());
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        "Reconnection attempt {} to {} failed: {}",
+                        attempt + 1,
+                        self.config.name,
+                        e
+                    );
+                    if attempt + 1 < config.max_attempts {
+                        tokio::time::sleep(Duration::from_millis(delay)).await;
+                        delay = ((delay as f64) * config.backoff_multiplier)
+                            .min(config.max_delay_ms as f64) as u64;
+                    }
+                }
+            }
+        }
+
+        Err(theasus_core::TheasusError::Other(format!(
+            "Max reconnection attempts ({}) exceeded for {}",
+            config.max_attempts, self.config.name
+        )))
+    }
+
+    /// Check if the MCP server is healthy by sending a ping request
+    pub async fn health_check(&self) -> Result<bool> {
+        if !self.is_connected() {
+            return Ok(false);
+        }
+
+        // Send ping request, expect pong
+        match self.send_request("ping", None).await {
+            Ok(_) => Ok(true),
+            Err(_) => Ok(false),
+        }
     }
 }
 
@@ -588,9 +678,7 @@ pub struct McpClientManager {
 
 impl McpClientManager {
     pub fn new() -> Self {
-        Self {
-            clients: HashMap::new(),
-        }
+        Self { clients: HashMap::new() }
     }
 
     pub async fn add_server(&mut self, config: McpServerConfig) -> Result<()> {
@@ -741,5 +829,84 @@ mod tests {
         let tool_def = mcp_tool.to_tool_definition();
         assert_eq!(tool_def.name, "test_tool");
         assert_eq!(tool_def.description, "A test tool");
+    }
+
+    #[test]
+    fn test_reconnection_config_defaults() {
+        let config = ReconnectionConfig::default();
+        assert_eq!(config.max_attempts, 5);
+        assert_eq!(config.initial_delay_ms, 1000);
+        assert_eq!(config.max_delay_ms, 30000);
+        assert!((config.backoff_multiplier - 2.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_reconnection_config_serialization() {
+        let config = ReconnectionConfig {
+            max_attempts: 3,
+            initial_delay_ms: 500,
+            max_delay_ms: 10000,
+            backoff_multiplier: 1.5,
+        };
+
+        let json = serde_json::to_string(&config).unwrap();
+        let deserialized: ReconnectionConfig = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(deserialized.max_attempts, 3);
+        assert_eq!(deserialized.initial_delay_ms, 500);
+        assert_eq!(deserialized.max_delay_ms, 10000);
+        assert!((deserialized.backoff_multiplier - 1.5).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_mcp_transport_stdio_serialization() {
+        let transport = McpTransport::Stdio;
+        let json = serde_json::to_string(&transport).unwrap();
+        assert_eq!(json, r#"{"type":"stdio"}"#);
+
+        let deserialized: McpTransport = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized, McpTransport::Stdio);
+    }
+
+    #[test]
+    fn test_mcp_transport_sse_serialization() {
+        let transport = McpTransport::Sse { url: "http://localhost:8080/sse".to_string() };
+        let json = serde_json::to_string(&transport).unwrap();
+        assert!(json.contains(r#""type":"sse""#));
+        assert!(json.contains(r#""url":"http://localhost:8080/sse""#));
+
+        let deserialized: McpTransport = serde_json::from_str(&json).unwrap();
+        match deserialized {
+            McpTransport::Sse { url } => {
+                assert_eq!(url, "http://localhost:8080/sse");
+            }
+            _ => panic!("Expected McpTransport::Sse"),
+        }
+    }
+
+    #[test]
+    fn test_mcp_transport_default() {
+        let transport = McpTransport::default();
+        assert_eq!(transport, McpTransport::Stdio);
+    }
+
+    #[test]
+    fn test_mcp_server_config_with_transport() {
+        let config = McpServerConfig::new("test", "echo")
+            .with_transport(McpTransport::Sse { url: "http://localhost:3000/sse".to_string() });
+
+        assert_eq!(config.name, "test");
+        match config.transport {
+            McpTransport::Sse { url } => {
+                assert_eq!(url, "http://localhost:3000/sse");
+            }
+            _ => panic!("Expected McpTransport::Sse"),
+        }
+    }
+
+    #[test]
+    fn test_mcp_server_config_default_transport() {
+        let config = McpServerConfig::new("test", "echo");
+        assert_eq!(config.transport, McpTransport::Stdio);
     }
 }

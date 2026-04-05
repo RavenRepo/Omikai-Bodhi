@@ -1,30 +1,15 @@
 # Bodhi - AI-Native Terminal Application
 
-```
-   _____ _     _       _    _   _ _   _      _   _
-  |  ___(_)___| |__   \ \  / / | | | | | |    | \ | |
-  | |_  | / __| '_ \   \ \/ /  | | | | | |    |  \| |
-  |  _| | \__ \ | | |   \  /   | | | | | |    | |\  |
-  |_|   |_|___/_| |_|    |_|   |_|_| |_|___  |_| \_|
-                                                    
-  ____                 _                       _   
- / ___|  __ _ _ __     | |    _____  _____  __  | |  
-| |  _ / _` | '__|    | |   / _ \ \/ / _ \ \ \ | |  
-| |_| || (_| | |      | |__|  __/>  <  __/  | ||_| 
- \____| \__,_|_|      |_____\___/_/\_\___|  |_| (_)
-                                                   
- _   _      _ _    __ _                       _    
-| \ | | ___| | |  / _| | ____      __        | |   
-|  \| |/ _ \ | | | |_| |/ _ \    / /        | |   
-| |\  |  __/ | | |  _| | (_) |  / /         |_|   
-|_| \_|\___|_|_| |_| |_|\___/  /_/          (_)  
-```
+<p align="center">
+  <img src="https://raw.githubusercontent.com/RavenRepo/Omikai-Bodhi/main/assets/logo.svg" alt="Bodhi" width="200">
+</p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/version-0.1.0-blue.svg" alt="version">
   <img src="https://img.shields.io/badge/rust-1.75+-informational.svg" alt="rust">
   <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="license">
   <img src="https://img.shields.io/badge/status-active-success.svg" alt="status">
+  <img src="https://img.shields.io/badge/lines_of_code-8.7k-blueviolet.svg" alt="lines of code">
   <a href="https://github.com/RavenRepo/Omikai-Bodhi/stargazers">
     <img src="https://img.shields.io/github/stars/RavenRepo/Omikai-Bodhi?style=social" alt="stars">
   </a>

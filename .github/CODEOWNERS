@@ -1,0 +1,34 @@
+# CODEOWNERS — Theasus/Bodhi Repository
+# 
+# This file defines the code owners who must approve all pull requests.
+# Follows the GitSkill principal engineer protocol: nothing merges without approval.
+#
+# Format: <pattern> <owners>
+# See: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Global owners — all files require approval from these maintainers
+*                               @RavenRepo/maintainers @luciousfox
+
+# Core architecture — requires principal engineer review
+/crates/core/                   @luciousfox
+/crates/language_model/         @luciousfox
+/crates/agents/                 @luciousfox
+/crates/knowledge/              @luciousfox
+/crates/knowledge_local/        @luciousfox
+
+# Security-sensitive areas — mandatory senior review
+/crates/permissions/            @luciousfox
+/crates/bridge/                 @luciousfox
+/crates/mcp/                    @luciousfox
+SECURITY.md                     @luciousfox
+
+# Infrastructure & CI/CD
+/.github/                       @luciousfox
+/Cargo.toml                     @luciousfox
+/Cargo.lock                     @luciousfox
+
+# Documentation
+/README.md                      @luciousfox
+/CONTRIBUTING.md                @luciousfox
+/CHANGELOG.md                   @luciousfox
+/AGENTS.md                      @luciousfox

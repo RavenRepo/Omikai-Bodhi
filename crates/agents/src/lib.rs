@@ -30,6 +30,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use theasus_core::{Message, Result, ToolCall};
+use theasus_knowledge::{
+    promotion::PromotionEvaluation, EntryType, KnowledgeEntry, KnowledgeProvider, KnowledgeQuery,
+};
 use theasus_tools::{ToolDefinition, ToolRegistry, ToolResult};
 use tokio::sync::RwLock;
 use uuid::Uuid;
@@ -76,10 +79,22 @@ pub struct AgentDefinition {
     pub max_turns: Option<u32>,
     #[serde(default)]
     pub temperature: Option<f32>,
+    /// Knowledge domains this agent queries before execution.
+    /// None means no knowledge binding — backward compatible.
+    #[serde(default)]
+    pub knowledge: Option<KnowledgeBinding>,
+    /// Structured reasoning instructions injected alongside domain context.
+    /// None means no reasoning framework — backward compatible.
+    #[serde(default)]
+    pub reasoning: Option<ReasoningFramework>,
 }
 
 impl AgentDefinition {
-    pub fn new(name: impl Into<String>, description: impl Into<String>, system_prompt: impl Into<String>) -> Self {
+    pub fn new(
+        name: impl Into<String>,
+        description: impl Into<String>,
+        system_prompt: impl Into<String>,
+    ) -> Self {
         Self {
             name: name.into(),
             description: description.into(),
@@ -87,6 +102,8 @@ impl AgentDefinition {
             allowed_tools: None,
             max_turns: Some(10),
             temperature: None,
+            knowledge: None,
+            reasoning: None,
         }
     }
 
@@ -98,6 +115,171 @@ impl AgentDefinition {
     pub fn with_max_turns(mut self, turns: u32) -> Self {
         self.max_turns = Some(turns);
         self
+    }
+
+    /// Bind this agent to knowledge domains for pre-execution context injection
+    /// and post-execution knowledge capture.
+    pub fn with_knowledge(mut self, binding: KnowledgeBinding) -> Self {
+        self.knowledge = Some(binding);
+        self
+    }
+
+    /// Attach a reasoning framework that gets injected into the system prompt
+    /// as structured reasoning instructions.
+    pub fn with_reasoning(mut self, reasoning: ReasoningFramework) -> Self {
+        self.reasoning = Some(reasoning);
+        self
+    }
+}
+
+// ============================================================================
+// Knowledge Binding — Connects agents to domain knowledge
+// ============================================================================
+
+/// Binds an agent to specific knowledge domains.
+///
+/// This is the bridge between the agent definition (what the agent IS)
+/// and the knowledge layer (what the agent KNOWS). It declares:
+/// - Which domains to query before the LLM loop starts
+/// - What queries to execute for pre-execution context
+/// - What to extract from agent output after execution
+/// - How much token budget to allocate for injected knowledge
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KnowledgeBinding {
+    /// Knowledge domains this agent is interested in.
+    /// Maps to `KnowledgeEntry.domain` values.
+    pub domains: Vec<String>,
+
+    /// Queries executed before the LLM loop to build domain context.
+    /// Results are compiled into a prompt fragment and appended to system_prompt.
+    pub pre_execution_queries: Vec<KnowledgeQuery>,
+
+    /// Patterns for extracting knowledge from agent output after execution.
+    /// Each pattern defines what to capture and when.
+    pub post_execution_captures: Vec<CapturePattern>,
+
+    /// Maximum tokens to allocate for injected knowledge context.
+    /// Prevents domain context from overwhelming the system prompt.
+    /// None means no limit (use all available context).
+    pub max_context_tokens: Option<usize>,
+
+    /// Enable contract-based evaluation for graded knowledge promotion.
+    /// When true, observations go through PromotionEvaluation scoring.
+    #[serde(default)]
+    pub enable_graded_promotion: bool,
+
+    /// Minimum promotion score (0.0-1.0) required to store captured knowledge.
+    /// Only used when `enable_graded_promotion` is true.
+    #[serde(default = "default_promotion_threshold")]
+    pub promotion_threshold: f32,
+}
+
+fn default_promotion_threshold() -> f32 {
+    0.6
+}
+
+/// Defines what knowledge to extract from agent output after execution.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CapturePattern {
+    /// The domain to store captured knowledge in.
+    pub domain: String,
+
+    /// The entry type for captured knowledge.
+    pub entry_type: EntryType,
+
+    /// When to trigger knowledge capture.
+    pub trigger: CaptureTrigger,
+}
+
+impl CapturePattern {
+    /// Check whether this capture should trigger based on the agent result.
+    pub fn should_trigger(&self, result: &AgentResult) -> bool {
+        match &self.trigger {
+            CaptureTrigger::Always => true,
+            CaptureTrigger::OnSuccess => result.success,
+            CaptureTrigger::OnPattern(pattern) => result.output.contains(pattern),
+        }
+    }
+}
+
+/// When to trigger post-execution knowledge capture.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum CaptureTrigger {
+    /// Always capture after execution completes.
+    Always,
+    /// Only capture when the agent reports success.
+    OnSuccess,
+    /// Capture when agent output contains this substring.
+    OnPattern(String),
+}
+
+// ============================================================================
+// Reasoning Framework — Structured reasoning instructions
+// ============================================================================
+
+/// Structured reasoning instructions injected into the agent's system prompt.
+///
+/// Instead of bloating system_prompt with reasoning instructions directly,
+/// the ReasoningFramework provides a structured way to declare the agent's
+/// reasoning strategy, constraints, and output format.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReasoningFramework {
+    /// The high-level reasoning strategy to use.
+    pub approach: ReasoningApproach,
+
+    /// Domain-specific constraints that must be respected during reasoning.
+    pub constraints: Vec<String>,
+
+    /// Expected output format (e.g., "FINDING: [severity] [file:line] [desc]").
+    pub output_format: Option<String>,
+}
+
+impl ReasoningFramework {
+    /// Convert the reasoning framework into prompt instructions.
+    pub fn to_prompt_instructions(&self) -> String {
+        let mut instructions = String::new();
+
+        instructions.push_str(&format!("Reasoning Approach: {}\n", self.approach));
+
+        if !self.constraints.is_empty() {
+            instructions.push_str("\nConstraints:\n");
+            for constraint in &self.constraints {
+                instructions.push_str(&format!("- {}\n", constraint));
+            }
+        }
+
+        if let Some(ref format) = self.output_format {
+            instructions.push_str(&format!("\nOutput Format: {}\n", format));
+        }
+
+        instructions
+    }
+}
+
+/// High-level reasoning strategy for an agent.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ReasoningApproach {
+    /// Chain-of-thought: break down problem step by step.
+    StepByStep,
+    /// Explore multiple reasoning paths before committing.
+    TreeOfThought,
+    /// Simulate multiple expert perspectives.
+    ExpertPanel,
+    /// Start from constraints, work toward solutions.
+    ConstraintFirst,
+    /// Verify assumptions before taking any action.
+    VerifyThenAct,
+}
+
+impl std::fmt::Display for ReasoningApproach {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::StepByStep => write!(f, "Step-by-step chain of thought"),
+            Self::TreeOfThought => write!(f, "Explore multiple paths before committing"),
+            Self::ExpertPanel => write!(f, "Simulate multiple expert perspectives"),
+            Self::ConstraintFirst => write!(f, "Start from constraints, work toward solutions"),
+            Self::VerifyThenAct => write!(f, "Verify all assumptions before acting"),
+        }
     }
 }
 
@@ -160,6 +342,9 @@ pub struct AgentContext {
     pub cwd: std::path::PathBuf,
     pub tool_registry: Arc<ToolRegistry>,
     pub llm_provider: Option<Arc<dyn LlmProvider>>,
+    /// Knowledge provider for domain context injection and learning capture.
+    /// None means no knowledge layer — agents execute without domain context.
+    pub knowledge_provider: Option<Arc<dyn KnowledgeProvider>>,
     pub extra: HashMap<String, serde_json::Value>,
 }
 
@@ -170,12 +355,19 @@ impl AgentContext {
             cwd,
             tool_registry,
             llm_provider: None,
+            knowledge_provider: None,
             extra: HashMap::new(),
         }
     }
 
     pub fn with_llm(mut self, provider: Arc<dyn LlmProvider>) -> Self {
         self.llm_provider = Some(provider);
+        self
+    }
+
+    /// Attach a knowledge provider for domain context injection.
+    pub fn with_knowledge(mut self, provider: Arc<dyn KnowledgeProvider>) -> Self {
+        self.knowledge_provider = Some(provider);
         self
     }
 
@@ -187,10 +379,7 @@ impl AgentContext {
     pub fn get_tools(&self, filter: Option<&[String]>) -> Vec<ToolDefinition> {
         let all_tools = self.tool_registry.list_tools();
         match filter {
-            Some(allowed) => all_tools
-                .into_iter()
-                .filter(|t| allowed.contains(&t.name))
-                .collect(),
+            Some(allowed) => all_tools.into_iter().filter(|t| allowed.contains(&t.name)).collect(),
             None => all_tools,
         }
     }
@@ -239,6 +428,51 @@ impl LlmAgent {
         let mut all_tool_calls = vec![];
         let mut turns = 0;
 
+        // ================================================================
+        // PRE-EXECUTION: Knowledge injection
+        // ================================================================
+        // Build the effective system prompt by starting with the base prompt
+        // and optionally appending domain knowledge and reasoning framework.
+        let mut system_prompt = self.definition.system_prompt.clone();
+
+        // Inject domain knowledge if both binding and provider are present
+        if let (Some(binding), Some(kp)) = (&self.definition.knowledge, &context.knowledge_provider)
+        {
+            match kp
+                .compile_context(&binding.pre_execution_queries, binding.max_context_tokens)
+                .await
+            {
+                Ok(domain_context) => {
+                    if !domain_context.compiled_prompt.is_empty() {
+                        system_prompt.push_str("\n\n--- Domain Knowledge ---\n");
+                        system_prompt.push_str(&domain_context.compiled_prompt);
+                        tracing::info!(
+                            agent = %self.definition.name,
+                            entries = domain_context.entries.len(),
+                            tokens = domain_context.token_estimate,
+                            "Injected domain knowledge into system prompt"
+                        );
+                    }
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        agent = %self.definition.name,
+                        error = %e,
+                        "Failed to compile domain context, continuing without knowledge"
+                    );
+                }
+            }
+        }
+
+        // Inject reasoning framework instructions
+        if let Some(reasoning) = &self.definition.reasoning {
+            system_prompt.push_str("\n\n--- Reasoning Framework ---\n");
+            system_prompt.push_str(&reasoning.to_prompt_instructions());
+        }
+
+        // ================================================================
+        // LLM LOOP (unchanged core logic)
+        // ================================================================
         loop {
             turns += 1;
             if turns > max_turns {
@@ -250,7 +484,7 @@ impl LlmAgent {
 
             let request = LlmRequest {
                 messages: messages.clone(),
-                system: Some(self.definition.system_prompt.clone()),
+                system: Some(system_prompt.clone()),
                 tools: tools.clone(),
                 temperature: self.definition.temperature,
                 max_tokens: None,
@@ -265,19 +499,74 @@ impl LlmAgent {
             // Check if there are tool calls
             if response.tool_calls.is_empty() {
                 // No tool calls - agent is done
-                return Ok(AgentResult::success(&response.text)
+                let result = AgentResult::success(&response.text)
                     .with_messages(messages)
                     .with_tool_calls(all_tool_calls)
-                    .with_turns(turns));
+                    .with_turns(turns);
+
+                // ========================================================
+                // POST-EXECUTION: Knowledge capture with graded promotion
+                // ========================================================
+                if let (Some(binding), Some(kp)) =
+                    (&self.definition.knowledge, &context.knowledge_provider)
+                {
+                    for capture in &binding.post_execution_captures {
+                        if capture.should_trigger(&result) {
+                            let mut entry = KnowledgeEntry::from_agent_output(
+                                &capture.domain,
+                                format!("[{}] Observation from task", self.definition.name),
+                                &result.output,
+                                capture.entry_type.clone(),
+                            );
+
+                            // Apply graded promotion if enabled
+                            if binding.enable_graded_promotion {
+                                let evaluation = PromotionEvaluation::from_success_result(
+                                    result.success,
+                                    &result.output,
+                                );
+                                let score = evaluation.weighted_score();
+
+                                if score >= binding.promotion_threshold {
+                                    // Promote with adjusted confidence
+                                    entry = entry.with_confidence(score);
+                                    tracing::info!(
+                                        agent = %self.definition.name,
+                                        domain = %capture.domain,
+                                        score = %score,
+                                        "Knowledge promoted via graded evaluation"
+                                    );
+                                } else {
+                                    tracing::debug!(
+                                        agent = %self.definition.name,
+                                        domain = %capture.domain,
+                                        score = %score,
+                                        threshold = %binding.promotion_threshold,
+                                        "Knowledge below promotion threshold, skipping"
+                                    );
+                                    continue;
+                                }
+                            }
+
+                            if let Err(e) = kp.store(entry).await {
+                                tracing::warn!(
+                                    agent = %self.definition.name,
+                                    error = %e,
+                                    "Failed to capture post-execution knowledge"
+                                );
+                            }
+                        }
+                    }
+                }
+
+                return Ok(result);
             }
 
             // Process tool calls
             for tool_call in &response.tool_calls {
                 all_tool_calls.push(tool_call.clone());
 
-                let result = context
-                    .execute_tool(&tool_call.name, tool_call.input.clone())
-                    .await;
+                let result = context.execute_tool(&tool_call.name, tool_call.input.clone()).await;
 
                 let tool_result = match result {
                     Ok(r) => r,
@@ -534,6 +823,56 @@ impl Agent for CodeReviewAgent {
     }
 }
 
+pub struct VerificationAgent(LlmAgent);
+
+impl VerificationAgent {
+    pub fn new() -> Self {
+        Self(LlmAgent::new(
+            AgentDefinition::new(
+                "verification",
+                "Verifies code changes and test results",
+                r#"You are a verification agent. Your job is to verify that code changes are correct, tests pass, and the implementation matches requirements. Check for edge cases, error handling, and potential bugs.
+
+Your role:
+- Run tests and verify they pass
+- Check code changes match requirements
+- Verify edge cases are handled
+- Ensure proper error handling exists
+
+Guidelines:
+- Be thorough but efficient
+- Report specific issues with file:line references
+- Suggest fixes for problems found
+- Confirm when verification passes"#,
+            )
+            .with_tools(vec![
+                "bash".into(),
+                "file_read".into(),
+                "grep".into(),
+                "glob".into(),
+            ])
+            .with_max_turns(5),
+        ))
+    }
+}
+
+impl Default for VerificationAgent {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[async_trait]
+impl Agent for VerificationAgent {
+    fn definition(&self) -> AgentDefinition {
+        self.0.definition()
+    }
+
+    async fn execute(&self, query: &str, context: &AgentContext) -> Result<AgentResult> {
+        self.0.execute(query, context).await
+    }
+}
+
 // ============================================================================
 // Agent Registry
 // ============================================================================
@@ -544,9 +883,7 @@ pub struct AgentRegistry {
 
 impl AgentRegistry {
     pub fn new() -> Self {
-        let mut registry = Self {
-            agents: HashMap::new(),
-        };
+        let mut registry = Self { agents: HashMap::new() };
         registry.register_defaults();
         registry
     }
@@ -557,11 +894,11 @@ impl AgentRegistry {
         self.register(PlanAgent::new());
         self.register(TaskAgent::new());
         self.register(CodeReviewAgent::new());
+        self.register(VerificationAgent::new());
     }
 
     pub fn register<A: Agent + 'static>(&mut self, agent: A) {
-        self.agents
-            .insert(agent.definition().name.clone(), Arc::new(agent));
+        self.agents.insert(agent.definition().name.clone(), Arc::new(agent));
     }
 
     pub fn get(&self, name: &str) -> Option<Arc<dyn Agent>> {
@@ -594,6 +931,8 @@ pub struct AgentTask {
     pub query: String,
     #[serde(default)]
     pub depends_on: Vec<Uuid>,
+    #[serde(default)]
+    pub parent_task_id: Option<Uuid>,
     #[serde(default)]
     pub status: TaskStatus,
 }
@@ -636,6 +975,7 @@ impl AgentOrchestrator {
             agent_name: agent_name.to_string(),
             query: query.to_string(),
             depends_on: vec![],
+            parent_task_id: None,
             status: TaskStatus::Pending,
         };
         let id = task.id;
@@ -654,6 +994,7 @@ impl AgentOrchestrator {
             agent_name: agent_name.to_string(),
             query: query.to_string(),
             depends_on,
+            parent_task_id: None,
             status: TaskStatus::Pending,
         };
         let id = task.id;
@@ -664,9 +1005,9 @@ impl AgentOrchestrator {
     pub async fn run_task(&self, task_id: Uuid) -> Result<AgentResult> {
         let task = {
             let mut tasks = self.tasks.write().await;
-            let task = tasks.get_mut(&task_id).ok_or_else(|| {
-                theasus_core::TheasusError::Other("Task not found".to_string())
-            })?;
+            let task = tasks
+                .get_mut(&task_id)
+                .ok_or_else(|| theasus_core::TheasusError::Other("Task not found".to_string()))?;
             task.status = TaskStatus::Running;
             task.clone()
         };
@@ -693,22 +1034,12 @@ impl AgentOrchestrator {
         {
             let mut tasks = self.tasks.write().await;
             if let Some(t) = tasks.get_mut(&task_id) {
-                t.status = if result.is_ok() {
-                    TaskStatus::Completed
-                } else {
-                    TaskStatus::Failed
-                };
+                t.status = if result.is_ok() { TaskStatus::Completed } else { TaskStatus::Failed };
             }
         }
 
         if let Ok(ref r) = result {
-            self.results.write().await.insert(
-                task_id,
-                TaskResult {
-                    task_id,
-                    result: r.clone(),
-                },
-            );
+            self.results.write().await.insert(task_id, TaskResult { task_id, result: r.clone() });
         }
 
         result
@@ -747,6 +1078,164 @@ impl AgentOrchestrator {
             .await
             .values()
             .filter(|t| t.status == TaskStatus::Pending)
+            .cloned()
+            .collect()
+    }
+
+    pub async fn spawn_background(&self, agent_name: &str, query: &str) -> Result<Uuid> {
+        let task_id = Uuid::new_v4();
+        let task = AgentTask {
+            id: task_id,
+            agent_name: agent_name.to_string(),
+            query: query.to_string(),
+            depends_on: vec![],
+            parent_task_id: None,
+            status: TaskStatus::Pending,
+        };
+
+        self.tasks.write().await.insert(task_id, task);
+
+        let registry = self.registry.clone();
+        let context = self.context.clone();
+        let tasks = self.tasks.clone();
+        let results = self.results.clone();
+        let agent_name = agent_name.to_string();
+        let query = query.to_string();
+
+        tokio::spawn(async move {
+            // Update status to running
+            {
+                let mut task_map = tasks.write().await;
+                if let Some(t) = task_map.get_mut(&task_id) {
+                    t.status = TaskStatus::Running;
+                }
+            }
+
+            // Execute agent
+            let agent = match registry.get(&agent_name) {
+                Some(a) => a,
+                None => {
+                    let mut task_map = tasks.write().await;
+                    if let Some(t) = task_map.get_mut(&task_id) {
+                        t.status = TaskStatus::Failed;
+                    }
+                    tracing::error!("Agent not found: {}", agent_name);
+                    return;
+                }
+            };
+
+            let result = agent.execute(&query, &context).await;
+
+            // Update tasks/results when done
+            let (status, agent_result) = match result {
+                Ok(r) => (TaskStatus::Completed, r),
+                Err(e) => {
+                    tracing::error!("Background task {} failed: {}", task_id, e);
+                    (TaskStatus::Failed, AgentResult::error(e.to_string()))
+                }
+            };
+
+            {
+                let mut task_map = tasks.write().await;
+                if let Some(t) = task_map.get_mut(&task_id) {
+                    t.status = status;
+                }
+            }
+
+            results.write().await.insert(task_id, TaskResult { task_id, result: agent_result });
+        });
+
+        Ok(task_id)
+    }
+
+    pub async fn fork_agent(
+        &self,
+        parent_task_id: Uuid,
+        agent_name: &str,
+        query: &str,
+    ) -> Result<Uuid> {
+        // Verify parent task exists
+        let parent_exists = self.tasks.read().await.contains_key(&parent_task_id);
+        if !parent_exists {
+            return Err(theasus_core::TheasusError::Other(format!(
+                "Parent task not found: {}",
+                parent_task_id
+            )));
+        }
+
+        let child_task_id = Uuid::new_v4();
+        let task = AgentTask {
+            id: child_task_id,
+            agent_name: agent_name.to_string(),
+            query: query.to_string(),
+            depends_on: vec![],
+            parent_task_id: Some(parent_task_id),
+            status: TaskStatus::Pending,
+        };
+
+        self.tasks.write().await.insert(child_task_id, task);
+
+        let registry = self.registry.clone();
+        let context = self.context.clone();
+        let tasks = self.tasks.clone();
+        let results = self.results.clone();
+        let agent_name = agent_name.to_string();
+        let query = query.to_string();
+
+        tokio::spawn(async move {
+            // Update status to running
+            {
+                let mut task_map = tasks.write().await;
+                if let Some(t) = task_map.get_mut(&child_task_id) {
+                    t.status = TaskStatus::Running;
+                }
+            }
+
+            // Execute agent (inherits context from parent via shared context)
+            let agent = match registry.get(&agent_name) {
+                Some(a) => a,
+                None => {
+                    let mut task_map = tasks.write().await;
+                    if let Some(t) = task_map.get_mut(&child_task_id) {
+                        t.status = TaskStatus::Failed;
+                    }
+                    tracing::error!("Agent not found for fork: {}", agent_name);
+                    return;
+                }
+            };
+
+            let result = agent.execute(&query, &context).await;
+
+            let (status, agent_result) = match result {
+                Ok(r) => (TaskStatus::Completed, r),
+                Err(e) => {
+                    tracing::error!("Forked task {} failed: {}", child_task_id, e);
+                    (TaskStatus::Failed, AgentResult::error(e.to_string()))
+                }
+            };
+
+            {
+                let mut task_map = tasks.write().await;
+                if let Some(t) = task_map.get_mut(&child_task_id) {
+                    t.status = status;
+                }
+            }
+
+            results
+                .write()
+                .await
+                .insert(child_task_id, TaskResult { task_id: child_task_id, result: agent_result });
+        });
+
+        Ok(child_task_id)
+    }
+
+    pub async fn get_child_tasks(&self, parent_task_id: Uuid) -> Vec<AgentTask> {
+        self.tasks
+            .read()
+            .await
+            .values()
+            .filter(|t| t.parent_task_id == Some(parent_task_id))
             .cloned()
             .collect()
     }
@@ -796,12 +1285,127 @@ mod tests {
         assert_eq!(def.name, "test");
         assert_eq!(def.allowed_tools, Some(vec!["tool1".to_string()]));
         assert_eq!(def.max_turns, Some(5));
+        assert!(def.knowledge.is_none());
+        assert!(def.reasoning.is_none());
+    }
+
+    #[test]
+    fn test_agent_definition_with_knowledge() {
+        let def = AgentDefinition::new("security", "Security agent", "Check security")
+            .with_knowledge(KnowledgeBinding {
+                domains: vec!["security".into()],
+                pre_execution_queries: vec![KnowledgeQuery::new()
+                    .with_domains(vec!["security".into()])
+                    .with_entry_types(vec![EntryType::Rule])],
+                post_execution_captures: vec![CapturePattern {
+                    domain: "security".into(),
+                    entry_type: EntryType::Observation,
+                    trigger: CaptureTrigger::OnSuccess,
+                }],
+                max_context_tokens: Some(2000),
+                enable_graded_promotion: false,
+                promotion_threshold: 0.6,
+            });
+
+        assert!(def.knowledge.is_some());
+        let binding = def.knowledge.unwrap();
+        assert_eq!(binding.domains, vec!["security"]);
+        assert_eq!(binding.max_context_tokens, Some(2000));
+    }
+
+    #[test]
+    fn test_agent_definition_with_reasoning() {
+        let def = AgentDefinition::new("reviewer", "Code reviewer", "Review code").with_reasoning(
+            ReasoningFramework {
+                approach: ReasoningApproach::ConstraintFirst,
+                constraints: vec!["Check OWASP Top 10".into()],
+                output_format: Some("FINDING: [severity] [description]".into()),
+            },
+        );
+
+        assert!(def.reasoning.is_some());
+        let reasoning = def.reasoning.unwrap();
+        let instructions = reasoning.to_prompt_instructions();
+        assert!(instructions.contains("Constraint"));
+        assert!(instructions.contains("OWASP"));
+    }
+
+    #[test]
+    fn test_backward_compat_serde() {
+        // JSON without knowledge/reasoning fields should deserialize fine
+        let json = r#"{
+            "name": "test",
+            "description": "legacy agent",
+            "system_prompt": "do things"
+        }"#;
+
+        let def: AgentDefinition = serde_json::from_str(json).unwrap();
+        assert_eq!(def.name, "test");
+        assert!(def.knowledge.is_none());
+        assert!(def.reasoning.is_none());
+        assert!(def.allowed_tools.is_none());
+        assert!(def.max_turns.is_none());
+        assert!(def.temperature.is_none());
+    }
+
+    #[test]
+    fn test_capture_trigger_always() {
+        let capture = CapturePattern {
+            domain: "test".into(),
+            entry_type: EntryType::Observation,
+            trigger: CaptureTrigger::Always,
+        };
+        assert!(capture.should_trigger(&AgentResult::success("ok")));
+        assert!(capture.should_trigger(&AgentResult::error("fail")));
+    }
+
+    #[test]
+    fn test_capture_trigger_on_success() {
+        let capture = CapturePattern {
+            domain: "test".into(),
+            entry_type: EntryType::Observation,
+            trigger: CaptureTrigger::OnSuccess,
+        };
+        assert!(capture.should_trigger(&AgentResult::success("ok")));
+        assert!(!capture.should_trigger(&AgentResult::error("fail")));
+    }
+
+    #[test]
+    fn test_capture_trigger_on_pattern() {
+        let capture = CapturePattern {
+            domain: "test".into(),
+            entry_type: EntryType::Observation,
+            trigger: CaptureTrigger::OnPattern("DISCOVERY:".into()),
+        };
+        assert!(capture.should_trigger(&AgentResult::success("DISCOVERY: found pattern")));
+        assert!(!capture.should_trigger(&AgentResult::success("nothing special")));
+    }
+
+    #[test]
+    fn test_reasoning_approach_display() {
+        assert!(ReasoningApproach::StepByStep.to_string().contains("step"));
+        assert!(ReasoningApproach::ConstraintFirst.to_string().contains("onstraint"));
+        assert!(ReasoningApproach::VerifyThenAct.to_string().contains("erify"));
+    }
+
+    #[test]
+    fn test_reasoning_framework_to_prompt() {
+        let framework = ReasoningFramework {
+            approach: ReasoningApproach::StepByStep,
+            constraints: vec!["Be thorough".into(), "Check edge cases".into()],
+            output_format: Some("RESULT: [status] [details]".into()),
+        };
+
+        let prompt = framework.to_prompt_instructions();
+        assert!(prompt.contains("Step-by-step"));
+        assert!(prompt.contains("Be thorough"));
+        assert!(prompt.contains("Check edge cases"));
+        assert!(prompt.contains("RESULT:"));
     }
 
     #[test]
     fn test_agent_result() {
-        let result = AgentResult::success("Done")
-            .with_turns(3);
+        let result = AgentResult::success("Done").with_turns(3);
 
         assert!(result.success);
         assert_eq!(result.output, "Done");
@@ -818,10 +1422,141 @@ mod tests {
         assert!(names.contains(&"plan".to_string()));
         assert!(names.contains(&"task".to_string()));
         assert!(names.contains(&"code-review".to_string()));
+        assert!(names.contains(&"verification".to_string()));
     }
 
     #[test]
     fn test_task_status() {
         assert_eq!(TaskStatus::default(), TaskStatus::Pending);
+    }
+
+    #[test]
+    fn test_verification_agent_creation() {
+        let agent = VerificationAgent::new();
+        let def = agent.definition();
+
+        assert_eq!(def.name, "verification");
+        assert_eq!(def.description, "Verifies code changes and test results");
+        assert_eq!(def.max_turns, Some(5));
+        assert_eq!(
+            def.allowed_tools,
+            Some(vec![
+                "bash".to_string(),
+                "file_read".to_string(),
+                "grep".to_string(),
+                "glob".to_string(),
+            ])
+        );
+    }
+
+    #[test]
+    fn test_verification_agent_default() {
+        let agent = VerificationAgent::default();
+        assert_eq!(agent.definition().name, "verification");
+    }
+
+    #[tokio::test]
+    async fn test_background_task_spawning() {
+        let registry = Arc::new(AgentRegistry::new());
+        let tool_registry = Arc::new(ToolRegistry::new());
+        let context = AgentContext::new(std::env::temp_dir(), tool_registry);
+        let orchestrator = AgentOrchestrator::new(registry, context);
+
+        // Spawn a background task
+        let task_id = orchestrator
+            .spawn_background("explore", "test query")
+            .await
+            .expect("Failed to spawn background task");
+
+        // Task should be registered
+        let status = orchestrator.get_task_status(task_id).await;
+        assert!(status.is_some());
+
+        // Status should be Pending or Running (depending on timing)
+        let status = status.unwrap();
+        assert!(status == TaskStatus::Pending || status == TaskStatus::Running);
+    }
+
+    #[tokio::test]
+    async fn test_agent_forking() {
+        let registry = Arc::new(AgentRegistry::new());
+        let tool_registry = Arc::new(ToolRegistry::new());
+        let context = AgentContext::new(std::env::temp_dir(), tool_registry);
+        let orchestrator = AgentOrchestrator::new(registry, context);
+
+        // Create parent task
+        let parent_id = orchestrator
+            .submit_task("explore", "parent query")
+            .await
+            .expect("Failed to submit parent task");
+
+        // Fork from parent
+        let child_id = orchestrator
+            .fork_agent(parent_id, "task", "child query")
+            .await
+            .expect("Failed to fork agent");
+
+        // Verify child task was created with parent reference
+        let tasks = orchestrator.tasks.read().await;
+        let child_task = tasks.get(&child_id).expect("Child task not found");
+        assert_eq!(child_task.parent_task_id, Some(parent_id));
+        assert_eq!(child_task.agent_name, "task");
+    }
+
+    #[tokio::test]
+    async fn test_fork_agent_invalid_parent() {
+        let registry = Arc::new(AgentRegistry::new());
+        let tool_registry = Arc::new(ToolRegistry::new());
+        let context = AgentContext::new(std::env::temp_dir(), tool_registry);
+        let orchestrator = AgentOrchestrator::new(registry, context);
+
+        // Try to fork from non-existent parent
+        let fake_parent_id = Uuid::new_v4();
+        let result = orchestrator.fork_agent(fake_parent_id, "task", "query").await;
+
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_get_child_tasks() {
+        let registry = Arc::new(AgentRegistry::new());
+        let tool_registry = Arc::new(ToolRegistry::new());
+        let context = AgentContext::new(std::env::temp_dir(), tool_registry);
+        let orchestrator = AgentOrchestrator::new(registry, context);
+
+        // Create parent task
+        let parent_id = orchestrator
+            .submit_task("explore", "parent query")
+            .await
+            .expect("Failed to submit parent task");
+
+        // Fork multiple children
+        let _child1 = orchestrator
+            .fork_agent(parent_id, "task", "child 1")
+            .await
+            .expect("Failed to fork child 1");
+        let _child2 = orchestrator
+            .fork_agent(parent_id, "plan", "child 2")
+            .await
+            .expect("Failed to fork child 2");
+
+        // Get child tasks
+        let children = orchestrator.get_child_tasks(parent_id).await;
+        assert_eq!(children.len(), 2);
+    }
+
+    #[test]
+    fn test_agent_task_with_parent() {
+        let parent_id = Uuid::new_v4();
+        let task = AgentTask {
+            id: Uuid::new_v4(),
+            agent_name: "test".to_string(),
+            query: "query".to_string(),
+            depends_on: vec![],
+            parent_task_id: Some(parent_id),
+            status: TaskStatus::Pending,
+        };
+
+        assert_eq!(task.parent_task_id, Some(parent_id));
     }
 }

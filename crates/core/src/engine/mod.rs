@@ -46,36 +46,27 @@ impl QueryEngine {
     pub fn add_user_message(&mut self, content: &str) {
         self.messages.push(Message::User(crate::types::UserMessage {
             id: Uuid::new_v4(),
-            content: vec![ContentBlock::Text {
-                text: content.to_string(),
-            }],
+            content: vec![ContentBlock::Text { text: content.to_string() }],
             timestamp: chrono::Utc::now(),
         }));
     }
 
     pub fn add_assistant_message(&mut self, content: &str) {
-        self.messages
-            .push(Message::Assistant(crate::types::AssistantMessage {
-                id: Uuid::new_v4(),
-                content: vec![ContentBlock::Text {
-                    text: content.to_string(),
-                }],
-                tool_calls: vec![],
-                usage: Usage::default(),
-                model: self.config.model.clone(),
-                stop_reason: Some("end_turn".to_string()),
-                timestamp: chrono::Utc::now(),
-            }));
+        self.messages.push(Message::Assistant(crate::types::AssistantMessage {
+            id: Uuid::new_v4(),
+            content: vec![ContentBlock::Text { text: content.to_string() }],
+            tool_calls: vec![],
+            usage: Usage::default(),
+            model: self.config.model.clone(),
+            stop_reason: Some("end_turn".to_string()),
+            timestamp: chrono::Utc::now(),
+        }));
     }
 
     pub fn compact_conversation(&mut self) {
         if self.messages.len() > 20 {
-            let system_messages: Vec<Message> = self
-                .messages
-                .iter()
-                .filter(|m| matches!(m, Message::System(_)))
-                .cloned()
-                .collect();
+            let system_messages: Vec<Message> =
+                self.messages.iter().filter(|m| matches!(m, Message::System(_))).cloned().collect();
 
             let last_messages: Vec<Message> =
                 self.messages.iter().rev().take(10).cloned().collect();

@@ -83,6 +83,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 
 [[package]]
+name = "async-stream"
+version = "0.3.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0b5a71a6f37880a80d1d7f19efd781e4b5de42c88f0722cc13bcb6cc2cfe8476"
+dependencies = [
+ "async-stream-impl",
+ "futures-core",
+ "pin-project-lite",
+]
+
+[[package]]
+name = "async-stream-impl"
+version = "0.3.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c7c24de15d275a1ecfd47a380fb4d5ec9bfe0933f309ed5e705b775596a3574d"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "async-trait"
 version = "0.1.89"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -215,6 +237,15 @@ dependencies = [
  "anstyle",
  "clap_lex",
  "strsim",
+]
+
+[[package]]
+name = "clap_complete"
+version = "4.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "19c9f1dde76b736e3681f28cec9d5a61299cbaae0fce80a68e43724ad56031eb"
+dependencies = [
+ "clap",
 ]
 
 [[package]]
@@ -380,6 +411,15 @@ name = "directories"
 version = "5.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9a49173b84e034382284f27f1af4dcbbd231ffa358c0fe316541a7337f376a35"
+dependencies = [
+ "dirs-sys",
+]
+
+[[package]]
+name = "dirs"
+version = "5.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "44c45a9d03d6676652bcb5e724c7e988de1acad23a711b5217ab9cbecbec2225"
 dependencies = [
  "dirs-sys",
 ]
@@ -1965,6 +2005,7 @@ dependencies = [
  "serde",
  "serde_json",
  "theasus-core",
+ "theasus-knowledge",
  "theasus-language-model",
  "theasus-tools",
  "thiserror",
@@ -1999,6 +2040,7 @@ dependencies = [
  "anyhow",
  "chrono",
  "clap",
+ "clap_complete",
  "serde",
  "serde_json",
  "tempfile",
@@ -2024,6 +2066,8 @@ name = "theasus-commands"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "chrono",
+ "dirs",
  "serde",
  "serde_json",
  "theasus-core",
@@ -2053,6 +2097,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "theasus-examples"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "theasus-core",
+ "theasus-settings",
+ "theasus-tools",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
+name = "theasus-extension-api"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "theasus-fs"
 version = "0.1.0"
 dependencies = [
@@ -2078,6 +2145,34 @@ dependencies = [
  "async-trait",
  "futures",
  "reqwest",
+]
+
+[[package]]
+name = "theasus-knowledge"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "uuid",
+]
+
+[[package]]
+name = "theasus-knowledge-local"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "theasus-knowledge",
+ "tokio",
+ "tokio-test",
+ "tracing",
+ "uuid",
 ]
 
 [[package]]
@@ -2117,7 +2212,9 @@ name = "theasus-omik-provider"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-stream",
  "async-trait",
+ "bytes",
  "chrono",
  "futures",
  "reqwest",
@@ -2127,6 +2224,7 @@ dependencies = [
  "theasus-http-client",
  "theasus-language-model",
  "tokio",
+ "tracing",
  "uuid",
 ]
 
@@ -2182,7 +2280,6 @@ dependencies = [
  "serde_json",
  "tempfile",
  "theasus-core",
- "theasus-mcp",
  "thiserror",
  "tokio",
  "tokio-test",
@@ -2218,12 +2315,14 @@ dependencies = [
  "async-trait",
  "glob",
  "regex",
+ "reqwest",
  "serde",
  "serde_json",
  "theasus-core",
  "theasus-fs",
  "theasus-http-client",
  "theasus-language-model",
+ "theasus-settings",
  "thiserror",
  "tokio",
  "tracing",

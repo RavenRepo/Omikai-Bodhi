@@ -1,9 +1,11 @@
 use anyhow::{anyhow, Result};
+use async_stream::try_stream;
 use async_trait::async_trait;
 use chrono::Utc;
-use futures::Stream;
+use futures::{Stream, StreamExt};
 use reqwest::header::{HeaderMap, HeaderValue};
 use serde::{Deserialize, Serialize};
+use std::pin::Pin;
 use std::sync::Arc;
 use theasus_language_model::{
     AssistantMessage, CompletionChunk, CompletionRequest, CompletionResponse, ContentBlock,
@@ -63,13 +65,7 @@ impl OmikProvider {
             }
         }
 
-        Self {
-            http_client,
-            api_key,
-            provider,
-            model,
-            default_headers,
-        }
+        Self { http_client, api_key, provider, model, default_headers }
     }
 
     pub fn with_model(mut self, model: &str) -> Self {
@@ -144,22 +140,13 @@ impl LanguageModel for OmikProvider {
             LlmProvider::OpenAi | LlmProvider::Custom { .. } => {
                 let req_body = OpenAiRequest {
                     model: &request.model,
-                    messages: request
-                        .messages
-                        .iter()
-                        .map(convert_message_openai)
-                        .collect(),
+                    messages: request.messages.iter().map(convert_message_openai).collect(),
                     max_tokens: request.max_tokens,
                     temperature: request.temperature,
                     stream: false,
                 };
 
-                let response = client
-                    .post(&url)
-                    .headers(headers)
-                    .json(&req_body)
-                    .send()
-                    .await?;
+                let response = client.post(&url).headers(headers).json(&req_body).send().await?;
 
                 if !response.status().is_success() {
                     let body = response.text().await?;
@@ -199,22 +186,13 @@ impl LanguageModel for OmikProvider {
             LlmProvider::Anthropic => {
                 let req_body = AnthropicRequest {
                     model: &request.model,
-                    messages: request
-                        .messages
-                        .iter()
-                        .map(convert_message_anthropic)
-                        .collect(),
+                    messages: request.messages.iter().map(convert_message_anthropic).collect(),
                     max_tokens: request.max_tokens.unwrap_or(4096),
                     temperature: request.temperature,
                     system: request.system.clone(),
                 };
 
-                let response = client
-                    .post(&url)
-                    .headers(headers)
-                    .json(&req_body)
-                    .send()
-                    .await?;
+                let response = client.post(&url).headers(headers).json(&req_body).send().await?;
 
                 if !response.status().is_success() {
                     let body = response.text().await?;
@@ -256,11 +234,7 @@ impl LanguageModel for OmikProvider {
             LlmProvider::Ollama => {
                 let req_body = OllamaRequest {
                     model: &request.model,
-                    messages: request
-                        .messages
-                        .iter()
-                        .map(convert_message_ollama)
-                        .collect(),
+                    messages: request.messages.iter().map(convert_message_ollama).collect(),
                     stream: false,
                 };
 
@@ -276,9 +250,7 @@ impl LanguageModel for OmikProvider {
                 Ok(CompletionResponse {
                     message: Message::Assistant(AssistantMessage {
                         id: Uuid::new_v4(),
-                        content: vec![ContentBlock::Text {
-                            text: resp.message.content,
-                        }],
+                        content: vec![ContentBlock::Text { text: resp.message.content }],
                         tool_calls: vec![],
                         usage: Usage::default(),
                         model: self.model.clone(),
@@ -294,9 +266,74 @@ impl LanguageModel for OmikProvider {
 
     async fn stream(
         &self,
-        _request: CompletionRequest,
+        request: CompletionRequest,
     ) -> Result<Box<dyn Stream<Item = Result<CompletionChunk>> + Send>> {
-        todo!("Streaming not implemented")
+        let base_url = self.get_base_url();
+        let endpoint = self.get_endpoint();
+        let url = format!("{}{}", base_url, endpoint);
+
+        let client = reqwest::Client::new();
+        let mut headers = self.default_headers.clone();
+        headers.insert(reqwest::header::CONTENT_TYPE, HeaderValue::from_static("application/json"));
+
+        match self.provider {
+            LlmProvider::OpenAi | LlmProvider::Custom { .. } => {
+                let req_body = OpenAiRequest {
+                    model: &request.model,
+                    messages: request.messages.iter().map(convert_message_openai).collect(),
+                    max_tokens: request.max_tokens,
+                    temperature: request.temperature,
+                    stream: true,
+                };
+
+                let response = client.post(&url).headers(headers).json(&req_body).send().await?;
+
+                if !response.status().is_success() {
+                    let body = response.text().await?;
+                    return Err(anyhow!("API error: {}", body));
+                }
+
+                let stream = stream_openai(response);
+                Ok(Box::new(stream))
+            }
+            LlmProvider::Anthropic => {
+                let req_body = AnthropicStreamRequest {
+                    model: &request.model,
+                    messages: request.messages.iter().map(convert_message_anthropic).collect(),
+                    max_tokens: request.max_tokens.unwrap_or(4096),
+                    temperature: request.temperature,
+                    system: request.system.clone(),
+                    stream: true,
+                };
+
+                let response = client.post(&url).headers(headers).json(&req_body).send().await?;
+
+                if !response.status().is_success() {
+                    let body = response.text().await?;
+                    return Err(anyhow!("API error: {}", body));
+                }
+
+                let stream = stream_anthropic(response);
+                Ok(Box::new(stream))
+            }
+            LlmProvider::Ollama => {
+                let req_body = OllamaRequest {
+                    model: &request.model,
+                    messages: request.messages.iter().map(convert_message_ollama).collect(),
+                    stream: true,
+                };
+
+                let response = client.post(&url).json(&req_body).send().await?;
+
+                if !response.status().is_success() {
+                    let body = response.text().await?;
+                    return Err(anyhow!("API error: {}", body));
+                }
+
+                let stream = stream_ollama(response);
+                Ok(Box::new(stream))
+            }
+        }
     }
 }
 
@@ -350,9 +387,7 @@ fn convert_message_anthropic(msg: &Message) -> AnthropicMessage {
                 .iter()
                 .map(|c| match c {
                     ContentBlock::Text { text } => AnthropicContent::Text { text: text.clone() },
-                    _ => AnthropicContent::Text {
-                        text: String::new(),
-                    },
+                    _ => AnthropicContent::Text { text: String::new() },
                 })
                 .collect(),
         },
@@ -363,9 +398,7 @@ fn convert_message_anthropic(msg: &Message) -> AnthropicMessage {
                 .iter()
                 .map(|c| match c {
                     ContentBlock::Text { text } => AnthropicContent::Text { text: text.clone() },
-                    _ => AnthropicContent::Text {
-                        text: String::new(),
-                    },
+                    _ => AnthropicContent::Text { text: String::new() },
                 })
                 .collect(),
         },
@@ -376,9 +409,7 @@ fn convert_message_anthropic(msg: &Message) -> AnthropicMessage {
                 .iter()
                 .map(|c| match c {
                     ContentBlock::Text { text } => AnthropicContent::Text { text: text.clone() },
-                    _ => AnthropicContent::Text {
-                        text: String::new(),
-                    },
+                    _ => AnthropicContent::Text { text: String::new() },
                 })
                 .collect(),
         },
@@ -514,4 +545,208 @@ struct OllamaMessage {
 #[derive(Debug, Deserialize)]
 struct OllamaResponse {
     message: OllamaMessage,
+}
+
+// Streaming request for Anthropic (includes stream field)
+#[derive(Debug, Serialize)]
+struct AnthropicStreamRequest<'a> {
+    model: &'a str,
+    messages: Vec<AnthropicMessage>,
+    max_tokens: u32,
+    temperature: Option<f32>,
+    system: Option<String>,
+    stream: bool,
+}
+
+// OpenAI streaming response types
+#[derive(Debug, Deserialize)]
+struct OpenAiStreamChunk {
+    choices: Vec<OpenAiStreamChoice>,
+}
+
+#[derive(Debug, Deserialize)]
+struct OpenAiStreamChoice {
+    delta: OpenAiDelta,
+    #[allow(dead_code)]
+    finish_reason: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct OpenAiDelta {
+    content: Option<String>,
+}
+
+// Anthropic streaming response types
+#[derive(Debug, Deserialize)]
+struct AnthropicStreamEvent {
+    #[serde(rename = "type")]
+    event_type: String,
+    delta: Option<AnthropicDelta>,
+}
+
+#[derive(Debug, Deserialize)]
+struct AnthropicDelta {
+    #[allow(dead_code)]
+    #[serde(rename = "type")]
+    delta_type: Option<String>,
+    text: Option<String>,
+}
+
+// Ollama streaming response type
+#[derive(Debug, Deserialize)]
+struct OllamaStreamResponse {
+    message: Option<OllamaMessage>,
+    done: bool,
+}
+
+fn stream_openai(
+    response: reqwest::Response,
+) -> Pin<Box<dyn Stream<Item = Result<CompletionChunk>> + Send>> {
+    Box::pin(try_stream! {
+        let mut stream = response.bytes_stream();
+        let mut buffer = String::new();
+
+        while let Some(chunk_result) = stream.next().await {
+            let chunk = chunk_result?;
+            let chunk_str = String::from_utf8_lossy(&chunk);
+            buffer.push_str(&chunk_str);
+
+            // Process complete SSE lines
+            while let Some(line_end) = buffer.find('\n') {
+                let line = buffer[..line_end].trim().to_string();
+                buffer = buffer[line_end + 1..].to_string();
+
+                if line.is_empty() || line.starts_with(':') {
+                    continue;
+                }
+
+                if line == "data: [DONE]" {
+                    return;
+                }
+
+                if let Some(data) = line.strip_prefix("data: ") {
+                    match serde_json::from_str::<OpenAiStreamChunk>(data) {
+                        Ok(chunk) => {
+                            if let Some(choice) = chunk.choices.first() {
+                                if let Some(content) = &choice.delta.content {
+                                    if !content.is_empty() {
+                                        yield CompletionChunk {
+                                            delta: ContentBlock::Text {
+                                                text: content.clone(),
+                                            },
+                                            usage: None,
+                                        };
+                                    }
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            tracing::debug!("Failed to parse OpenAI stream chunk: {}", e);
+                        }
+                    }
+                }
+            }
+        }
+    })
+}
+
+fn stream_anthropic(
+    response: reqwest::Response,
+) -> Pin<Box<dyn Stream<Item = Result<CompletionChunk>> + Send>> {
+    Box::pin(try_stream! {
+        let mut stream = response.bytes_stream();
+        let mut buffer = String::new();
+
+        while let Some(chunk_result) = stream.next().await {
+            let chunk = chunk_result?;
+            let chunk_str = String::from_utf8_lossy(&chunk);
+            buffer.push_str(&chunk_str);
+
+            // Process complete SSE lines
+            while let Some(line_end) = buffer.find('\n') {
+                let line = buffer[..line_end].trim().to_string();
+                buffer = buffer[line_end + 1..].to_string();
+
+                if line.is_empty() || line.starts_with(':') {
+                    continue;
+                }
+
+                // Handle event type line (we skip it and look at data)
+                if line.starts_with("event:") {
+                    continue;
+                }
+
+                if let Some(data) = line.strip_prefix("data: ") {
+                    match serde_json::from_str::<AnthropicStreamEvent>(data) {
+                        Ok(event) => {
+                            // content_block_delta contains the text
+                            if event.event_type == "content_block_delta" {
+                                if let Some(delta) = event.delta {
+                                    if let Some(text) = delta.text {
+                                        if !text.is_empty() {
+                                            yield CompletionChunk {
+                                                delta: ContentBlock::Text { text },
+                                                usage: None,
+                                            };
+                                        }
+                                    }
+                                }
+                            } else if event.event_type == "message_stop" {
+                                return;
+                            }
+                        }
+                        Err(e) => {
+                            tracing::debug!("Failed to parse Anthropic stream event: {}", e);
+                        }
+                    }
+                }
+            }
+        }
+    })
+}
+
+fn stream_ollama(
+    response: reqwest::Response,
+) -> Pin<Box<dyn Stream<Item = Result<CompletionChunk>> + Send>> {
+    Box::pin(try_stream! {
+        let mut stream = response.bytes_stream();
+        let mut buffer = String::new();
+
+        while let Some(chunk_result) = stream.next().await {
+            let chunk = chunk_result?;
+            let chunk_str = String::from_utf8_lossy(&chunk);
+            buffer.push_str(&chunk_str);
+
+            // Ollama uses newline-delimited JSON
+            while let Some(line_end) = buffer.find('\n') {
+                let line = buffer[..line_end].trim().to_string();
+                buffer = buffer[line_end + 1..].to_string();
+
+                if line.is_empty() {
+                    continue;
+                }
+
+                match serde_json::from_str::<OllamaStreamResponse>(&line) {
+                    Ok(resp) => {
+                        if resp.done {
+                            return;
+                        }
+                        if let Some(msg) = resp.message {
+                            if !msg.content.is_empty() {
+                                yield CompletionChunk {
+                                    delta: ContentBlock::Text {
+                                        text: msg.content,
+                                    },
+                                    usage: None,
+                                };
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        tracing::debug!("Failed to parse Ollama stream response: {}", e);
+                    }
+                }
+            }
+        }
+    })
 }
