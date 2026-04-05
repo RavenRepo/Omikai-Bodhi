@@ -31,6 +31,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use theasus_core::{Result, TheasusError};
+use theasus_permissions::PermissionResult;
 
 pub mod ask_user;
 pub mod bash;
@@ -76,6 +77,11 @@ pub trait Tool: Send + Sync {
 
     /// Execute the tool with the given input and context.
     async fn execute(&self, input: serde_json::Value, context: &ToolContext) -> Result<ToolResult>;
+
+    /// Check if the tool execution is permitted with the given input.
+    fn check_permission(&self, _input: &serde_json::Value) -> PermissionResult {
+        PermissionResult::Allowed
+    }
 }
 
 /// Context provided to tools during execution.
