@@ -8,6 +8,7 @@ rust-version.workspace = true
 
 [dependencies]
 theasus-core.workspace = true
+theasus-knowledge.workspace = true
 theasus-tools.workspace = true
 theasus-language-model.workspace = true
 serde.workspace = true
