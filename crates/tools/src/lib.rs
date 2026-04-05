@@ -32,17 +32,25 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use theasus_core::{Result, TheasusError};
 
+pub mod ask_user;
 pub mod bash;
+pub mod config;
+pub mod file_edit;
 pub mod file_read;
 pub mod file_write;
 pub mod glob;
 pub mod grep;
+pub mod web_fetch;
 
+pub use ask_user::AskUserTool;
 pub use bash::BashTool;
+pub use config::ConfigTool;
+pub use file_edit::FileEditTool;
 pub use file_read::FileReadTool;
 pub use file_write::FileWriteTool;
 pub use glob::GlobTool;
 pub use grep::GrepTool;
+pub use web_fetch::WebFetchTool;
 
 /// Definition of a tool including its JSON schema for inputs.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -127,11 +135,15 @@ impl ToolRegistry {
     }
 
     pub fn register_defaults(&mut self) {
+        self.register(AskUserTool::new());
         self.register(BashTool::new());
+        self.register(ConfigTool::new());
+        self.register(FileEditTool::new());
         self.register(FileReadTool::new());
         self.register(FileWriteTool::new());
         self.register(GrepTool::new());
         self.register(GlobTool::new());
+        self.register(WebFetchTool::new());
     }
 
     pub fn register<T: Tool + 'static>(&mut self, tool: T) {
@@ -218,6 +230,7 @@ mod tests {
     use super::*;
     use std::path::PathBuf;
 
+    #[allow(dead_code)]
     fn test_context() -> ToolContext {
         ToolContext {
             cwd: std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")),
