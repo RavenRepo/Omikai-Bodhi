@@ -1,0 +1,25 @@
+[package]
+name = "theasus-examples"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[[example]]
+name = "basic_config"
+path = "basic_config.rs"
+
+[[example]]
+name = "tool_usage"
+path = "tool_usage.rs"
+
+[[example]]
+name = "simple_query"
+path = "simple_query.rs"
+
+[dependencies]
+theasus-core = { path = "../crates/core" }
+theasus-tools = { path = "../crates/tools" }
+theasus-settings = { path = "../crates/settings" }
+tokio = { version = "1", features = ["full"] }
+serde_json = "1"
+uuid = { version = "1", features = ["v4"] }
