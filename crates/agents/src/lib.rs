@@ -30,7 +30,10 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use theasus_core::{Message, Result, ToolCall};
-use theasus_knowledge::{KnowledgeEntry, KnowledgeProvider, KnowledgeQuery, EntryType};
+use theasus_knowledge::{
+    KnowledgeEntry, KnowledgeProvider, KnowledgeQuery, EntryType,
+    promotion::PromotionEvaluation,
+};
 use theasus_tools::{ToolDefinition, ToolRegistry, ToolResult};
 use tokio::sync::RwLock;
 use uuid::Uuid;
@@ -156,6 +159,20 @@ pub struct KnowledgeBinding {
     /// Prevents domain context from overwhelming the system prompt.
     /// None means no limit (use all available context).
     pub max_context_tokens: Option<usize>,
+
+    /// Enable contract-based evaluation for graded knowledge promotion.
+    /// When true, observations go through PromotionEvaluation scoring.
+    #[serde(default)]
+    pub enable_graded_promotion: bool,
+
+    /// Minimum promotion score (0.0-1.0) required to store captured knowledge.
+    /// Only used when `enable_graded_promotion` is true.
+    #[serde(default = "default_promotion_threshold")]
+    pub promotion_threshold: f32,
+}
+
+fn default_promotion_threshold() -> f32 {
+    0.6
 }
 
 /// Defines what knowledge to extract from agent output after execution.
@@ -493,7 +510,7 @@ impl LlmAgent {
                     .with_turns(turns);
 
                 // ========================================================
-                // POST-EXECUTION: Knowledge capture
+                // POST-EXECUTION: Knowledge capture with graded promotion
                 // ========================================================
                 if let (Some(binding), Some(kp)) = (
                     &self.definition.knowledge,
@@ -501,7 +518,7 @@ impl LlmAgent {
                 ) {
                     for capture in &binding.post_execution_captures {
                         if capture.should_trigger(&result) {
-                            let entry = KnowledgeEntry::from_agent_output(
+                            let mut entry = KnowledgeEntry::from_agent_output(
                                 &capture.domain,
                                 format!(
                                     "[{}] Observation from task",
@@ -510,6 +527,36 @@ impl LlmAgent {
                                 &result.output,
                                 capture.entry_type.clone(),
                             );
+
+                            // Apply graded promotion if enabled
+                            if binding.enable_graded_promotion {
+                                let evaluation = PromotionEvaluation::from_success_result(
+                                    result.success,
+                                    &result.output,
+                                );
+                                let score = evaluation.weighted_score();
+
+                                if score >= binding.promotion_threshold {
+                                    // Promote with adjusted confidence
+                                    entry = entry.with_confidence(score);
+                                    tracing::info!(
+                                        agent = %self.definition.name,
+                                        domain = %capture.domain,
+                                        score = %score,
+                                        "Knowledge promoted via graded evaluation"
+                                    );
+                                } else {
+                                    tracing::debug!(
+                                        agent = %self.definition.name,
+                                        domain = %capture.domain,
+                                        score = %score,
+                                        threshold = %binding.promotion_threshold,
+                                        "Knowledge below promotion threshold, skipping"
+                                    );
+                                    continue;
+                                }
+                            }
+
                             if let Err(e) = kp.store(entry).await {
                                 tracing::warn!(
                                     agent = %self.definition.name,
@@ -1291,6 +1338,8 @@ mod tests {
                     trigger: CaptureTrigger::OnSuccess,
                 }],
                 max_context_tokens: Some(2000),
+                enable_graded_promotion: false,
+                promotion_threshold: 0.6,
             });
 
         assert!(def.knowledge.is_some());

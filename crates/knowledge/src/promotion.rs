@@ -210,6 +210,37 @@ impl Default for PromotionEvaluation {
     }
 }
 
+impl PromotionEvaluation {
+    /// Create an evaluation from a simple success/failure result.
+    ///
+    /// This is a convenience method for quick evaluation without full
+    /// contract-based scoring. It provides reasonable defaults:
+    ///
+    /// - Success: correctness=0.8, generalizability=0.5, completeness=0.6
+    /// - Failure: correctness=0.2, generalizability=0.3, completeness=0.3
+    ///
+    /// Independence starts at 0.25 (single context).
+    ///
+    /// For more precise evaluation, use `EvaluationBuilder` with contract results.
+    pub fn from_success_result(success: bool, _output: &str) -> Self {
+        if success {
+            Self {
+                correctness: 0.8,
+                generalizability: 0.5,
+                completeness: 0.6,
+                independence: 0.25, // Single context
+            }
+        } else {
+            Self {
+                correctness: 0.2,
+                generalizability: 0.3,
+                completeness: 0.3,
+                independence: 0.25,
+            }
+        }
+    }
+}
+
 // ============================================================================
 // Independence Tracking
 // ============================================================================
