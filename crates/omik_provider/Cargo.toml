@@ -18,6 +18,9 @@ serde_json.workspace = true
 anyhow.workspace = true
 chrono.workspace = true
 uuid.workspace = true
+async-stream.workspace = true
+bytes.workspace = true
+tracing.workspace = true
 
 [features]
 default = []

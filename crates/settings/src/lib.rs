@@ -4,8 +4,38 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
-use theasus_mcp::McpServerConfig;
 use uuid::Uuid;
+
+/// MCP Server configuration for settings.
+///
+/// This is a simplified version of the MCP server config stored in settings.
+/// The full MCP runtime types are in `theasus_mcp`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct McpServerConfig {
+    pub name: String,
+    pub command: String,
+    #[serde(default)]
+    pub args: Vec<String>,
+    #[serde(default)]
+    pub env: HashMap<String, String>,
+    #[serde(default)]
+    pub timeout_ms: Option<u64>,
+    #[serde(default)]
+    pub transport: String,
+}
+
+impl McpServerConfig {
+    pub fn new(name: impl Into<String>, command: impl Into<String>) -> Self {
+        Self {
+            name: name.into(),
+            command: command.into(),
+            args: vec![],
+            env: HashMap::new(),
+            timeout_ms: Some(30000),
+            transport: "stdio".to_string(),
+        }
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
@@ -280,6 +310,19 @@ impl SessionManager {
         }
     }
 
+    pub async fn resume_session(&self, session_id: Uuid) -> std::io::Result<Session> {
+        self.load_session(session_id)?
+            .ok_or_else(|| std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                format!("Session {} not found", session_id),
+            ))
+    }
+
+    pub fn get_latest_session(&self) -> std::io::Result<Option<Session>> {
+        let sessions = self.list_sessions()?;
+        Ok(sessions.into_iter().next())
+    }
+
     pub fn create_session(&self, name: Option<&str>) -> Session {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -300,5 +343,137 @@ impl SessionManager {
 impl Default for SessionManager {
     fn default() -> Self {
         Self::new().expect("Failed to create session manager")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_settings_default() {
+        let settings = Settings::default();
+        assert_eq!(settings.model, "gpt-4o");
+        assert_eq!(settings.llm_provider, "openai");
+        assert!(settings.api_key.is_none());
+        assert_eq!(settings.theme, Theme::Dark);
+        assert_eq!(settings.permission_mode, PermissionMode::Default);
+    }
+
+    #[test]
+    fn test_settings_serialization() {
+        let settings = Settings::default();
+        let json = serde_json::to_string(&settings).expect("Failed to serialize");
+        let deserialized: Settings =
+            serde_json::from_str(&json).expect("Failed to deserialize");
+        assert_eq!(deserialized.model, settings.model);
+        assert_eq!(deserialized.llm_provider, settings.llm_provider);
+        assert_eq!(deserialized.theme, settings.theme);
+    }
+
+    #[test]
+    fn test_settings_builder() {
+        let settings = SettingsBuilder::new()
+            .model("claude-3")
+            .api_key("test-key")
+            .theme(Theme::Light)
+            .max_budget_usd(100.0)
+            .permission_mode(PermissionMode::Auto)
+            .build();
+
+        assert_eq!(settings.model, "claude-3");
+        assert_eq!(settings.api_key, Some("test-key".to_string()));
+        assert_eq!(settings.theme, Theme::Light);
+        assert_eq!(settings.max_budget_usd, Some(100.0));
+        assert_eq!(settings.permission_mode, PermissionMode::Auto);
+    }
+
+    #[test]
+    fn test_session_creation() {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+
+        let session = Session {
+            id: Uuid::new_v4(),
+            name: "Test Session".to_string(),
+            created_at: now,
+            updated_at: now,
+            messages: vec![],
+            metadata: SessionMetadata::default(),
+        };
+
+        assert_eq!(session.name, "Test Session");
+        assert!(session.messages.is_empty());
+        assert_eq!(session.metadata.total_tokens, 0);
+    }
+
+    #[test]
+    fn test_theme_default() {
+        let theme = Theme::default();
+        assert_eq!(theme, Theme::Dark);
+    }
+
+    #[test]
+    fn test_session_manager_resume_and_get_latest() {
+        use tempfile::TempDir;
+
+        let temp_dir = TempDir::new().unwrap();
+        let sessions_dir = temp_dir.path().join("sessions");
+        fs::create_dir_all(&sessions_dir).unwrap();
+
+        let manager = SessionManager { sessions_dir };
+
+        let session1 = manager.create_session(Some("First Session"));
+        manager.save_session(&session1).unwrap();
+
+        std::thread::sleep(std::time::Duration::from_millis(10));
+
+        let mut session2 = manager.create_session(Some("Second Session"));
+        session2.updated_at = session1.updated_at + 1000;
+        manager.save_session(&session2).unwrap();
+
+        let latest = manager.get_latest_session().unwrap();
+        assert!(latest.is_some());
+        assert_eq!(latest.unwrap().name, "Second Session");
+
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let resumed = rt.block_on(manager.resume_session(session1.id)).unwrap();
+        assert_eq!(resumed.id, session1.id);
+        assert_eq!(resumed.name, "First Session");
+    }
+
+    #[test]
+    fn test_session_resume_not_found() {
+        use tempfile::TempDir;
+
+        let temp_dir = TempDir::new().unwrap();
+        let sessions_dir = temp_dir.path().join("sessions");
+        fs::create_dir_all(&sessions_dir).unwrap();
+
+        let manager = SessionManager { sessions_dir };
+
+        let nonexistent_id = Uuid::new_v4();
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let result = rt.block_on(manager.resume_session(nonexistent_id));
+
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert_eq!(err.kind(), std::io::ErrorKind::NotFound);
+    }
+
+    #[test]
+    fn test_get_latest_session_empty() {
+        use tempfile::TempDir;
+
+        let temp_dir = TempDir::new().unwrap();
+        let sessions_dir = temp_dir.path().join("sessions");
+        fs::create_dir_all(&sessions_dir).unwrap();
+
+        let manager = SessionManager { sessions_dir };
+
+        let latest = manager.get_latest_session().unwrap();
+        assert!(latest.is_none());
     }
 }
