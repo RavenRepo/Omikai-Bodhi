@@ -1,10 +1,12 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
+use clap_complete::Shell;
 use std::path::PathBuf;
 use std::sync::Arc;
 use uuid::Uuid;
 
 mod app;
+mod completions;
 mod convert;
 mod llm;
 pub use llm::LlmManager;
@@ -14,12 +16,16 @@ use convert::convert_core_to_llm;
 #[derive(Parser)]
 #[command(name = "bodhi")]
 #[command(about = "Bodhi AI Terminal", long_about = None)]
-struct Cli {
+pub struct Cli {
     #[command(subcommand)]
-    command: Commands,
+    command: Option<Commands>,
 
     #[arg(short, long, global = true)]
     config: Option<PathBuf>,
+
+    /// Generate shell completion scripts
+    #[arg(long, value_enum)]
+    completions: Option<Shell>,
 }
 
 #[derive(Subcommand)]
@@ -86,7 +92,20 @@ fn main() -> Result<()> {
 
     let cli = Cli::parse();
 
-    match cli.command {
+    // Handle completions generation
+    if let Some(shell) = cli.completions {
+        completions::generate_completions(shell);
+        return Ok(());
+    }
+
+    // Require a command if not generating completions
+    let command = cli.command.unwrap_or_else(|| {
+        Commands::Run {
+            cwd: PathBuf::from("."),
+        }
+    });
+
+    match command {
         Commands::Run { cwd } => {
             tracing::info!("Starting Bodhi terminal in: {:?}", cwd);
             println!("Bodhi AI Terminal v{}", env!("CARGO_PKG_VERSION"));
