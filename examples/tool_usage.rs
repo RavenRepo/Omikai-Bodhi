@@ -3,7 +3,7 @@
 //! Run with: `cargo run --example tool_usage`
 
 use std::path::PathBuf;
-use theasus_tools::{ToolRegistry, ToolContext};
+use theasus_tools::{ToolContext, ToolRegistry};
 use uuid::Uuid;
 
 #[tokio::main]

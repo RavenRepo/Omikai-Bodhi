@@ -74,22 +74,13 @@ impl PermissionManager {
     pub fn add_rule(&mut self, rule: PermissionRule) {
         match rule.behavior {
             PermissionBehavior::Allow => {
-                self.always_allow
-                    .entry(rule.source)
-                    .or_default()
-                    .push(rule.name);
+                self.always_allow.entry(rule.source).or_default().push(rule.name);
             }
             PermissionBehavior::Deny => {
-                self.always_deny
-                    .entry(rule.source)
-                    .or_default()
-                    .push(rule.name);
+                self.always_deny.entry(rule.source).or_default().push(rule.name);
             }
             PermissionBehavior::Ask => {
-                self.always_ask
-                    .entry(rule.source)
-                    .or_default()
-                    .push(rule.name);
+                self.always_ask.entry(rule.source).or_default().push(rule.name);
             }
         }
     }
@@ -143,26 +134,17 @@ impl PermissionManager {
 
     pub fn allow_tool(&mut self, tool: impl Into<String>) {
         let tool = tool.into();
-        self.always_allow
-            .entry(PermissionRuleSource::UserSettings)
-            .or_default()
-            .push(tool);
+        self.always_allow.entry(PermissionRuleSource::UserSettings).or_default().push(tool);
     }
 
     pub fn deny_tool(&mut self, tool: impl Into<String>) {
         let tool = tool.into();
-        self.always_deny
-            .entry(PermissionRuleSource::UserSettings)
-            .or_default()
-            .push(tool);
+        self.always_deny.entry(PermissionRuleSource::UserSettings).or_default().push(tool);
     }
 
     pub fn ask_tool(&mut self, tool: impl Into<String>) {
         let tool = tool.into();
-        self.always_ask
-            .entry(PermissionRuleSource::UserSettings)
-            .or_default()
-            .push(tool);
+        self.always_ask.entry(PermissionRuleSource::UserSettings).or_default().push(tool);
     }
 }
 
@@ -248,15 +230,7 @@ pub enum PermissionError {
 pub type PermissionResultT<T> = std::result::Result<T, PermissionError>;
 
 pub fn is_command_safe(command: &str) -> bool {
-    let dangerous_patterns = [
-        "rm -rf",
-        "rm /",
-        "mkfs",
-        "dd if=",
-        ":(){:|:&};:",
-        "wget",
-        "curl |",
-    ];
+    let dangerous_patterns = ["rm -rf", "rm /", "mkfs", "dd if=", ":(){:|:&};:", "wget", "curl |"];
 
     let lower = command.to_lowercase();
     for pattern in dangerous_patterns {
@@ -359,17 +333,12 @@ mod tests {
         assert!(!allowed.is_denied());
         assert!(!allowed.requires_ask());
 
-        let denied = PermissionResult::Denied {
-            reason: "test".to_string(),
-        };
+        let denied = PermissionResult::Denied { reason: "test".to_string() };
         assert!(!denied.is_allowed());
         assert!(denied.is_denied());
         assert!(!denied.requires_ask());
 
-        let ask = PermissionResult::Ask {
-            tool: "test".to_string(),
-            context: "ctx".to_string(),
-        };
+        let ask = PermissionResult::Ask { tool: "test".to_string(), context: "ctx".to_string() };
         assert!(!ask.is_allowed());
         assert!(!ask.is_denied());
         assert!(ask.requires_ask());

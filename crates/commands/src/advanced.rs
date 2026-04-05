@@ -53,11 +53,9 @@ impl Command for McpCommand {
         let parts: Vec<&str> = args.split_whitespace().collect();
 
         match parts.first().copied() {
-            None | Some("list") => {
-                Ok(CommandResult::success(
-                    "MCP Servers:\n  (none connected)\n\nUse `/mcp connect <name>` to connect a server",
-                ))
-            }
+            None | Some("list") => Ok(CommandResult::success(
+                "MCP Servers:\n  (none connected)\n\nUse `/mcp connect <name>` to connect a server",
+            )),
             Some("connect") => {
                 if let Some(name) = parts.get(1) {
                     Ok(CommandResult::success(format!(
@@ -139,9 +137,8 @@ impl Command for PermissionsCommand {
         let parts: Vec<&str> = args.split_whitespace().collect();
 
         match parts.first().copied() {
-            None | Some("list") => {
-                Ok(CommandResult::success(
-                    r#"Permission Rules:
+            None | Some("list") => Ok(CommandResult::success(
+                r#"Permission Rules:
   bash       - ask (prompts before execution)
   file_read  - allow (always allowed)
   file_write - ask (prompts before execution)
@@ -149,8 +146,7 @@ impl Command for PermissionsCommand {
   glob       - allow (always allowed)
 
 Use `/permissions allow|deny|ask <tool>` to change rules"#,
-                ))
-            }
+            )),
             Some("allow") => {
                 if let Some(tool) = parts.get(1) {
                     Ok(CommandResult::success(format!(
@@ -440,9 +436,7 @@ impl Command for MemoryCommand {
         let subcommand = args.trim().to_lowercase();
 
         if subcommand == "clear" {
-            Ok(CommandResult::success(
-                "Context memory cleared (not yet implemented)",
-            ))
+            Ok(CommandResult::success("Context memory cleared (not yet implemented)"))
         } else {
             Ok(CommandResult::success(format!(
                 r#"Context Memory Status:

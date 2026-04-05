@@ -5,8 +5,8 @@
 //! Note: This example requires LLM configuration. Run:
 //! `bodhi config-llm --provider openai --api-key YOUR_KEY --model gpt-4o`
 
-use theasus_core::{new_theasus, Config, QueryEngine};
 use theasus_core::engine::QueryEngineConfig;
+use theasus_core::{new_theasus, Config, QueryEngine};
 use theasus_settings::Settings;
 
 #[tokio::main]
@@ -15,11 +15,14 @@ async fn main() {
 
     // Load settings to check if LLM is configured
     let settings = Settings::load().unwrap_or_default();
-    
+
     println!("Current LLM Configuration:");
     println!("  Provider: {}", settings.llm_provider);
     println!("  Model:    {}", settings.model);
-    println!("  API Key:  {}", if settings.api_key.is_some() { "[configured]" } else { "[not set]" });
+    println!(
+        "  API Key:  {}",
+        if settings.api_key.is_some() { "[configured]" } else { "[not set]" }
+    );
     println!();
 
     // Create Theasus instance
@@ -48,7 +51,7 @@ async fn main() {
     // Add a sample message
     engine.add_user_message("What is 2 + 2?");
     println!("\nAdded user message to conversation.");
-    
+
     let messages = engine.get_messages();
     println!("Current conversation has {} message(s).", messages.len());
 
@@ -78,6 +81,8 @@ async fn main() {
         println!("\n⚠️  Note: LLM not configured. To make actual queries, run:");
         println!("   bodhi config-llm --provider openai --api-key YOUR_KEY --model gpt-4o");
     } else {
-        println!("\n✓ LLM is configured. You can use `bodhi query \"your question\"` to make queries.");
+        println!(
+            "\n✓ LLM is configured. You can use `bodhi query \"your question\"` to make queries."
+        );
     }
 }

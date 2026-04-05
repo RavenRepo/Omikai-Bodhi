@@ -16,10 +16,7 @@ impl CrosstermTerminal {
 
     fn get_size() -> std::io::Result<TerminalSize> {
         let size = crossterm::terminal::size()?;
-        Ok(TerminalSize {
-            rows: size.1,
-            cols: size.0,
-        })
+        Ok(TerminalSize { rows: size.1, cols: size.0 })
     }
 
     pub fn refresh_size(&mut self) -> std::io::Result<()> {

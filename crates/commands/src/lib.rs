@@ -28,19 +28,11 @@ pub struct CommandResult {
 
 impl CommandResult {
     pub fn success(output: impl Into<String>) -> Self {
-        Self {
-            success: true,
-            output: output.into(),
-            error: None,
-        }
+        Self { success: true, output: output.into(), error: None }
     }
 
     pub fn error(msg: impl Into<String>) -> Self {
-        Self {
-            success: false,
-            output: String::new(),
-            error: Some(msg.into()),
-        }
+        Self { success: false, output: String::new(), error: Some(msg.into()) }
     }
 }
 
@@ -69,9 +61,7 @@ pub struct CommandRegistry {
 
 impl CommandRegistry {
     pub fn new() -> Self {
-        let mut registry = Self {
-            commands: HashMap::new(),
-        };
+        let mut registry = Self { commands: HashMap::new() };
         registry.register_builtins();
         registry
     }
@@ -145,10 +135,7 @@ impl CommandRegistry {
     }
 
     pub fn list(&self) -> Vec<(&str, &str)> {
-        self.commands
-            .values()
-            .map(|cmd| (cmd.name(), cmd.description()))
-            .collect()
+        self.commands.values().map(|cmd| (cmd.name(), cmd.description())).collect()
     }
 
     pub fn list_names(&self) -> Vec<String> {
@@ -222,10 +209,8 @@ mod tests {
         assert_eq!(help_cmd.name(), "help");
         assert!(!help_cmd.description().is_empty());
 
-        let context = CommandContext {
-            cwd: std::path::PathBuf::from("."),
-            session_id: uuid::Uuid::new_v4(),
-        };
+        let context =
+            CommandContext { cwd: std::path::PathBuf::from("."), session_id: uuid::Uuid::new_v4() };
 
         let result = help_cmd.execute("", &context).await;
         assert!(result.is_ok());
@@ -236,10 +221,8 @@ mod tests {
         let clear_cmd = ClearCommand::new();
         assert_eq!(clear_cmd.name(), "clear");
 
-        let context = CommandContext {
-            cwd: std::path::PathBuf::from("."),
-            session_id: uuid::Uuid::new_v4(),
-        };
+        let context =
+            CommandContext { cwd: std::path::PathBuf::from("."), session_id: uuid::Uuid::new_v4() };
 
         let result = clear_cmd.execute("", &context).await;
         assert!(result.is_ok());

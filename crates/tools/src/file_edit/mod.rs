@@ -61,15 +61,11 @@ impl Tool for FileEditTool {
             })?;
 
         let file_path = PathBuf::from(&edit_input.path);
-        let full_path = if file_path.is_absolute() {
-            file_path
-        } else {
-            context.cwd.join(&file_path)
-        };
+        let full_path =
+            if file_path.is_absolute() { file_path } else { context.cwd.join(&file_path) };
 
-        let content = tokio::fs::read_to_string(&full_path)
-            .await
-            .map_err(|e| crate::TheasusError::Tool {
+        let content =
+            tokio::fs::read_to_string(&full_path).await.map_err(|e| crate::TheasusError::Tool {
                 tool: "file_edit".to_string(),
                 reason: format!("Failed to read file: {}", e),
             })?;
@@ -93,17 +89,14 @@ impl Tool for FileEditTool {
 
         let new_content = content.replacen(&edit_input.old_str, &edit_input.new_str, 1);
 
-        tokio::fs::write(&full_path, &new_content)
-            .await
-            .map_err(|e| crate::TheasusError::Tool {
+        tokio::fs::write(&full_path, &new_content).await.map_err(|e| {
+            crate::TheasusError::Tool {
                 tool: "file_edit".to_string(),
                 reason: format!("Failed to write file: {}", e),
-            })?;
+            }
+        })?;
 
-        Ok(ToolResult::success(format!(
-            "Successfully edited {}",
-            full_path.display()
-        )))
+        Ok(ToolResult::success(format!("Successfully edited {}", full_path.display())))
     }
 }
 
@@ -120,11 +113,7 @@ mod tests {
     use tokio::fs;
 
     fn test_context(cwd: PathBuf) -> ToolContext {
-        ToolContext {
-            cwd,
-            session_id: uuid::Uuid::new_v4(),
-            user_id: None,
-        }
+        ToolContext { cwd, session_id: uuid::Uuid::new_v4(), user_id: None }
     }
 
     #[tokio::test]

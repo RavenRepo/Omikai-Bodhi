@@ -40,18 +40,9 @@ pub struct SystemMessage {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum ContentBlock {
-    Text {
-        text: String,
-    },
-    ToolUse {
-        id: String,
-        name: String,
-        input: serde_json::Value,
-    },
-    ToolResult {
-        tool_use_id: String,
-        content: String,
-    },
+    Text { text: String },
+    ToolUse { id: String, name: String, input: serde_json::Value },
+    ToolResult { tool_use_id: String, content: String },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -138,15 +129,12 @@ mod tests {
     fn test_message_serialization() {
         let user_msg = Message::User(UserMessage {
             id: Uuid::new_v4(),
-            content: vec![ContentBlock::Text {
-                text: "Hello".to_string(),
-            }],
+            content: vec![ContentBlock::Text { text: "Hello".to_string() }],
             timestamp: Utc::now(),
         });
 
         let json = serde_json::to_string(&user_msg).expect("Serialization failed");
-        let deserialized: Message =
-            serde_json::from_str(&json).expect("Deserialization failed");
+        let deserialized: Message = serde_json::from_str(&json).expect("Deserialization failed");
 
         if let Message::User(msg) = deserialized {
             assert_eq!(msg.content.len(), 1);
@@ -186,9 +174,7 @@ mod tests {
 
     #[test]
     fn test_content_block_variants() {
-        let text = ContentBlock::Text {
-            text: "Hello".to_string(),
-        };
+        let text = ContentBlock::Text { text: "Hello".to_string() };
         let tool_use = ContentBlock::ToolUse {
             id: "123".to_string(),
             name: "bash".to_string(),

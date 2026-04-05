@@ -65,13 +65,7 @@ impl OmikProvider {
             }
         }
 
-        Self {
-            http_client,
-            api_key,
-            provider,
-            model,
-            default_headers,
-        }
+        Self { http_client, api_key, provider, model, default_headers }
     }
 
     pub fn with_model(mut self, model: &str) -> Self {
@@ -146,22 +140,13 @@ impl LanguageModel for OmikProvider {
             LlmProvider::OpenAi | LlmProvider::Custom { .. } => {
                 let req_body = OpenAiRequest {
                     model: &request.model,
-                    messages: request
-                        .messages
-                        .iter()
-                        .map(convert_message_openai)
-                        .collect(),
+                    messages: request.messages.iter().map(convert_message_openai).collect(),
                     max_tokens: request.max_tokens,
                     temperature: request.temperature,
                     stream: false,
                 };
 
-                let response = client
-                    .post(&url)
-                    .headers(headers)
-                    .json(&req_body)
-                    .send()
-                    .await?;
+                let response = client.post(&url).headers(headers).json(&req_body).send().await?;
 
                 if !response.status().is_success() {
                     let body = response.text().await?;
@@ -201,22 +186,13 @@ impl LanguageModel for OmikProvider {
             LlmProvider::Anthropic => {
                 let req_body = AnthropicRequest {
                     model: &request.model,
-                    messages: request
-                        .messages
-                        .iter()
-                        .map(convert_message_anthropic)
-                        .collect(),
+                    messages: request.messages.iter().map(convert_message_anthropic).collect(),
                     max_tokens: request.max_tokens.unwrap_or(4096),
                     temperature: request.temperature,
                     system: request.system.clone(),
                 };
 
-                let response = client
-                    .post(&url)
-                    .headers(headers)
-                    .json(&req_body)
-                    .send()
-                    .await?;
+                let response = client.post(&url).headers(headers).json(&req_body).send().await?;
 
                 if !response.status().is_success() {
                     let body = response.text().await?;
@@ -258,11 +234,7 @@ impl LanguageModel for OmikProvider {
             LlmProvider::Ollama => {
                 let req_body = OllamaRequest {
                     model: &request.model,
-                    messages: request
-                        .messages
-                        .iter()
-                        .map(convert_message_ollama)
-                        .collect(),
+                    messages: request.messages.iter().map(convert_message_ollama).collect(),
                     stream: false,
                 };
 
@@ -278,9 +250,7 @@ impl LanguageModel for OmikProvider {
                 Ok(CompletionResponse {
                     message: Message::Assistant(AssistantMessage {
                         id: Uuid::new_v4(),
-                        content: vec![ContentBlock::Text {
-                            text: resp.message.content,
-                        }],
+                        content: vec![ContentBlock::Text { text: resp.message.content }],
                         tool_calls: vec![],
                         usage: Usage::default(),
                         model: self.model.clone(),
@@ -304,31 +274,19 @@ impl LanguageModel for OmikProvider {
 
         let client = reqwest::Client::new();
         let mut headers = self.default_headers.clone();
-        headers.insert(
-            reqwest::header::CONTENT_TYPE,
-            HeaderValue::from_static("application/json"),
-        );
+        headers.insert(reqwest::header::CONTENT_TYPE, HeaderValue::from_static("application/json"));
 
         match self.provider {
             LlmProvider::OpenAi | LlmProvider::Custom { .. } => {
                 let req_body = OpenAiRequest {
                     model: &request.model,
-                    messages: request
-                        .messages
-                        .iter()
-                        .map(convert_message_openai)
-                        .collect(),
+                    messages: request.messages.iter().map(convert_message_openai).collect(),
                     max_tokens: request.max_tokens,
                     temperature: request.temperature,
                     stream: true,
                 };
 
-                let response = client
-                    .post(&url)
-                    .headers(headers)
-                    .json(&req_body)
-                    .send()
-                    .await?;
+                let response = client.post(&url).headers(headers).json(&req_body).send().await?;
 
                 if !response.status().is_success() {
                     let body = response.text().await?;
@@ -341,23 +299,14 @@ impl LanguageModel for OmikProvider {
             LlmProvider::Anthropic => {
                 let req_body = AnthropicStreamRequest {
                     model: &request.model,
-                    messages: request
-                        .messages
-                        .iter()
-                        .map(convert_message_anthropic)
-                        .collect(),
+                    messages: request.messages.iter().map(convert_message_anthropic).collect(),
                     max_tokens: request.max_tokens.unwrap_or(4096),
                     temperature: request.temperature,
                     system: request.system.clone(),
                     stream: true,
                 };
 
-                let response = client
-                    .post(&url)
-                    .headers(headers)
-                    .json(&req_body)
-                    .send()
-                    .await?;
+                let response = client.post(&url).headers(headers).json(&req_body).send().await?;
 
                 if !response.status().is_success() {
                     let body = response.text().await?;
@@ -370,11 +319,7 @@ impl LanguageModel for OmikProvider {
             LlmProvider::Ollama => {
                 let req_body = OllamaRequest {
                     model: &request.model,
-                    messages: request
-                        .messages
-                        .iter()
-                        .map(convert_message_ollama)
-                        .collect(),
+                    messages: request.messages.iter().map(convert_message_ollama).collect(),
                     stream: true,
                 };
 
@@ -442,9 +387,7 @@ fn convert_message_anthropic(msg: &Message) -> AnthropicMessage {
                 .iter()
                 .map(|c| match c {
                     ContentBlock::Text { text } => AnthropicContent::Text { text: text.clone() },
-                    _ => AnthropicContent::Text {
-                        text: String::new(),
-                    },
+                    _ => AnthropicContent::Text { text: String::new() },
                 })
                 .collect(),
         },
@@ -455,9 +398,7 @@ fn convert_message_anthropic(msg: &Message) -> AnthropicMessage {
                 .iter()
                 .map(|c| match c {
                     ContentBlock::Text { text } => AnthropicContent::Text { text: text.clone() },
-                    _ => AnthropicContent::Text {
-                        text: String::new(),
-                    },
+                    _ => AnthropicContent::Text { text: String::new() },
                 })
                 .collect(),
         },
@@ -468,9 +409,7 @@ fn convert_message_anthropic(msg: &Message) -> AnthropicMessage {
                 .iter()
                 .map(|c| match c {
                     ContentBlock::Text { text } => AnthropicContent::Text { text: text.clone() },
-                    _ => AnthropicContent::Text {
-                        text: String::new(),
-                    },
+                    _ => AnthropicContent::Text { text: String::new() },
                 })
                 .collect(),
         },

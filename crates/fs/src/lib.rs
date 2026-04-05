@@ -48,13 +48,8 @@ mod tests {
 
     #[test]
     fn test_fs_metadata_creation() {
-        let metadata = FsMetadata {
-            len: 1024,
-            is_dir: false,
-            is_file: true,
-            modified: None,
-            created: None,
-        };
+        let metadata =
+            FsMetadata { len: 1024, is_dir: false, is_file: true, modified: None, created: None };
         assert_eq!(metadata.len, 1024);
         assert!(!metadata.is_dir);
         assert!(metadata.is_file);

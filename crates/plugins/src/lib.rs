@@ -121,18 +121,11 @@ pub struct PluginContext {
 
 impl PluginContext {
     pub fn new(plugin_id: Uuid, data_dir: PathBuf, tool_registry: Arc<ToolRegistry>) -> Self {
-        Self {
-            plugin_id,
-            data_dir,
-            tool_registry,
-            settings: HashMap::new(),
-        }
+        Self { plugin_id, data_dir, tool_registry, settings: HashMap::new() }
     }
 
     pub fn get_setting<T: serde::de::DeserializeOwned>(&self, key: &str) -> Option<T> {
-        self.settings
-            .get(key)
-            .and_then(|v| serde_json::from_value(v.clone()).ok())
+        self.settings.get(key).and_then(|v| serde_json::from_value(v.clone()).ok())
     }
 
     pub fn set_setting<T: Serialize>(&mut self, key: &str, value: T) {
@@ -149,20 +142,10 @@ impl PluginContext {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum PluginMessage {
-    ToolExecuted {
-        tool_name: String,
-        success: bool,
-    },
-    ConversationUpdated {
-        message_count: usize,
-    },
-    SettingsChanged {
-        key: String,
-    },
-    Custom {
-        event: String,
-        data: serde_json::Value,
-    },
+    ToolExecuted { tool_name: String, success: bool },
+    ConversationUpdated { message_count: usize },
+    SettingsChanged { key: String },
+    Custom { event: String, data: serde_json::Value },
 }
 
 // ============================================================================
@@ -246,20 +229,12 @@ impl PluginManager {
         let plugin_data_dir = self.data_dir.join("plugins").join(&name);
         std::fs::create_dir_all(&plugin_data_dir)?;
 
-        let mut context = PluginContext::new(
-            Uuid::new_v4(),
-            plugin_data_dir,
-            self.tool_registry.clone(),
-        );
+        let mut context =
+            PluginContext::new(Uuid::new_v4(), plugin_data_dir, self.tool_registry.clone());
 
         plugin.on_load(&mut context).await?;
 
-        let loaded = LoadedPlugin {
-            manifest,
-            plugin,
-            state: PluginState::Loaded,
-            context,
-        };
+        let loaded = LoadedPlugin { manifest, plugin, state: PluginState::Loaded, context };
 
         self.plugins.write().await.insert(name.clone(), loaded);
 
@@ -281,20 +256,11 @@ impl PluginManager {
     }
 
     pub async fn get_plugin(&self, name: &str) -> Option<Arc<dyn Plugin>> {
-        self.plugins
-            .read()
-            .await
-            .get(name)
-            .map(|p| p.plugin.clone())
+        self.plugins.read().await.get(name).map(|p| p.plugin.clone())
     }
 
     pub async fn list_plugins(&self) -> Vec<PluginManifest> {
-        self.plugins
-            .read()
-            .await
-            .values()
-            .map(|p| p.manifest.clone())
-            .collect()
+        self.plugins.read().await.values().map(|p| p.manifest.clone()).collect()
     }
 
     pub async fn get_plugin_state(&self, name: &str) -> Option<PluginState> {
@@ -344,9 +310,7 @@ pub mod native {
 
     impl NativePluginLoader {
         pub fn new() -> Self {
-            Self {
-                libraries: HashMap::new(),
-            }
+            Self { libraries: HashMap::new() }
         }
 
         pub unsafe fn load(&mut self, path: &Path) -> Result<Arc<dyn Plugin>> {

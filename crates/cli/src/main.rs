@@ -99,11 +99,7 @@ fn main() -> Result<()> {
     }
 
     // Require a command if not generating completions
-    let command = cli.command.unwrap_or_else(|| {
-        Commands::Run {
-            cwd: PathBuf::from("."),
-        }
-    });
+    let command = cli.command.unwrap_or_else(|| Commands::Run { cwd: PathBuf::from(".") });
 
     match command {
         Commands::Run { cwd } => {
@@ -164,11 +160,8 @@ fn main() -> Result<()> {
                         break;
                     }
 
-                    let llm_messages: Vec<theasus_language_model::Message> = query_engine
-                        .get_messages()
-                        .iter()
-                        .map(convert_core_to_llm)
-                        .collect();
+                    let llm_messages: Vec<theasus_language_model::Message> =
+                        query_engine.get_messages().iter().map(convert_core_to_llm).collect();
 
                     let result = rt.block_on(async {
                         client.complete(theasus_language_model::CompletionRequest {
@@ -304,12 +297,7 @@ fn main() -> Result<()> {
             }
             Ok(())
         }
-        Commands::ConfigLlm {
-            provider,
-            api_key,
-            model,
-            base_url,
-        } => {
+        Commands::ConfigLlm { provider, api_key, model, base_url } => {
             if provider.is_none() && api_key.is_none() && model.is_none() && base_url.is_none() {
                 println!("LLM Configuration:");
                 println!("  Use --provider to set provider (openai, anthropic, ollama, custom)");

@@ -81,18 +81,14 @@ impl LocalKnowledgeProvider {
     /// The domain is sanitized to prevent path traversal:
     /// slashes and dots are replaced with hyphens.
     fn entry_path(&self, domain: &str, id: Uuid) -> PathBuf {
-        let safe_domain = domain
-            .replace(['/', '\\'], "-")
-            .replace("..", "-");
+        let safe_domain = domain.replace(['/', '\\'], "-").replace("..", "-");
         self.root.join(&safe_domain).join(format!("{}.json", id))
     }
 
     /// Get the directory path for a domain.
     #[allow(dead_code)]
     fn domain_path(&self, domain: &str) -> PathBuf {
-        let safe_domain = domain
-            .replace(['/', '\\'], "-")
-            .replace("..", "-");
+        let safe_domain = domain.replace(['/', '\\'], "-").replace("..", "-");
         self.root.join(&safe_domain)
     }
 
@@ -146,10 +142,7 @@ impl LocalKnowledgeProvider {
     async fn load_entry_from_file(&self, path: &Path) -> Result<KnowledgeEntry, KnowledgeError> {
         let content = tokio::fs::read_to_string(path).await?;
         serde_json::from_str(&content).map_err(|e| {
-            KnowledgeError::SerializationError(format!(
-                "Failed to deserialize {:?}: {}",
-                path, e
-            ))
+            KnowledgeError::SerializationError(format!("Failed to deserialize {:?}: {}", path, e))
         })
     }
 
@@ -210,22 +203,15 @@ impl KnowledgeProvider for LocalKnowledgeProvider {
     ///
     /// For the filesystem scale (~100s of entries), full scan is acceptable.
     /// Future backends will use indexed queries.
-    async fn query(
-        &self,
-        query: KnowledgeQuery,
-    ) -> Result<Vec<KnowledgeEntry>, KnowledgeError> {
+    async fn query(&self, query: KnowledgeQuery) -> Result<Vec<KnowledgeEntry>, KnowledgeError> {
         let all_entries = self.load_all().await?;
 
-        let mut results: Vec<KnowledgeEntry> = all_entries
-            .into_iter()
-            .filter(|entry| query.matches(entry))
-            .collect();
+        let mut results: Vec<KnowledgeEntry> =
+            all_entries.into_iter().filter(|entry| query.matches(entry)).collect();
 
         // Sort by confidence descending (most reliable knowledge first)
         results.sort_by(|a, b| {
-            b.confidence
-                .partial_cmp(&a.confidence)
-                .unwrap_or(std::cmp::Ordering::Equal)
+            b.confidence.partial_cmp(&a.confidence).unwrap_or(std::cmp::Ordering::Equal)
         });
 
         // Apply limit
@@ -258,10 +244,7 @@ impl KnowledgeProvider for LocalKnowledgeProvider {
     /// handles domain changes by moving the file.
     async fn update(&self, id: Uuid, mut entry: KnowledgeEntry) -> Result<(), KnowledgeError> {
         // Find existing entry to handle domain changes
-        let existing_path = self
-            .find_entry_path(id)
-            .await?
-            .ok_or(KnowledgeError::NotFound(id))?;
+        let existing_path = self.find_entry_path(id).await?.ok_or(KnowledgeError::NotFound(id))?;
 
         // Update timestamp
         entry.updated_at = chrono::Utc::now();
@@ -417,19 +400,15 @@ mod tests {
             .unwrap();
 
         // Query for sql tag - should only match first
-        let results = provider
-            .query(KnowledgeQuery::new().with_tags(vec!["sql".into()]))
-            .await
-            .unwrap();
+        let results =
+            provider.query(KnowledgeQuery::new().with_tags(vec!["sql".into()])).await.unwrap();
 
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].title, "SQL Injection");
 
         // Query for owasp tag - should match both
-        let results = provider
-            .query(KnowledgeQuery::new().with_tags(vec!["owasp".into()]))
-            .await
-            .unwrap();
+        let results =
+            provider.query(KnowledgeQuery::new().with_tags(vec!["owasp".into()])).await.unwrap();
 
         assert_eq!(results.len(), 2);
     }
@@ -443,14 +422,8 @@ mod tests {
             .store(test_entry("arch", "ADR-001", EntryType::ArchitectureDecision))
             .await
             .unwrap();
-        provider
-            .store(test_entry("arch", "No unwrap", EntryType::Rule))
-            .await
-            .unwrap();
-        provider
-            .store(test_entry("arch", "Error pattern", EntryType::Pattern))
-            .await
-            .unwrap();
+        provider.store(test_entry("arch", "No unwrap", EntryType::Rule)).await.unwrap();
+        provider.store(test_entry("arch", "Error pattern", EntryType::Pattern)).await.unwrap();
 
         let results = provider
             .query(KnowledgeQuery::new().with_entry_types(vec![EntryType::Rule]))
@@ -475,10 +448,7 @@ mod tests {
             .await
             .unwrap();
 
-        let results = provider
-            .query(KnowledgeQuery::new().with_min_confidence(0.8))
-            .await
-            .unwrap();
+        let results = provider.query(KnowledgeQuery::new().with_min_confidence(0.8)).await.unwrap();
 
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].title, "High conf");
@@ -509,10 +479,8 @@ mod tests {
             .await
             .unwrap();
 
-        let results = provider
-            .query(KnowledgeQuery::new().with_search_text("trait"))
-            .await
-            .unwrap();
+        let results =
+            provider.query(KnowledgeQuery::new().with_search_text("trait")).await.unwrap();
 
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].title, "Trait Abstraction");
@@ -530,10 +498,7 @@ mod tests {
                 .unwrap();
         }
 
-        let results = provider
-            .query(KnowledgeQuery::new().with_limit(3))
-            .await
-            .unwrap();
+        let results = provider.query(KnowledgeQuery::new().with_limit(3)).await.unwrap();
 
         assert_eq!(results.len(), 3);
     }
@@ -596,10 +561,8 @@ mod tests {
         updated.id = id;
         provider.update(id, updated).await.unwrap();
 
-        let results = provider
-            .query(KnowledgeQuery::new().with_domains(vec!["arch".into()]))
-            .await
-            .unwrap();
+        let results =
+            provider.query(KnowledgeQuery::new().with_domains(vec!["arch".into()])).await.unwrap();
 
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].title, "ADR-001 (Updated)");
@@ -665,8 +628,7 @@ mod tests {
         // Store entry that matches multiple queries
         provider
             .store(
-                test_entry("security", "SQL Rule", EntryType::Rule)
-                    .with_tags(vec!["owasp".into()]),
+                test_entry("security", "SQL Rule", EntryType::Rule).with_tags(vec!["owasp".into()]),
             )
             .await
             .unwrap();
@@ -724,18 +686,12 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let provider = test_provider(&dir);
 
-        provider
-            .store(test_entry("security", "Sec Entry", EntryType::Rule))
-            .await
-            .unwrap();
+        provider.store(test_entry("security", "Sec Entry", EntryType::Rule)).await.unwrap();
         provider
             .store(test_entry("architecture", "Arch Entry", EntryType::ArchitectureDecision))
             .await
             .unwrap();
-        provider
-            .store(test_entry("patterns", "Pat Entry", EntryType::Pattern))
-            .await
-            .unwrap();
+        provider.store(test_entry("patterns", "Pat Entry", EntryType::Pattern)).await.unwrap();
 
         // Query all
         let all = provider.query(KnowledgeQuery::new()).await.unwrap();

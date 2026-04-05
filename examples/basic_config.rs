@@ -2,7 +2,7 @@
 //!
 //! Run with: `cargo run --example basic_config`
 
-use theasus_settings::{Settings, Theme, PermissionMode};
+use theasus_settings::{PermissionMode, Settings, Theme};
 
 fn main() {
     println!("Bodhi Configuration Example\n");
@@ -17,14 +17,17 @@ fn main() {
     println!("Current Settings:");
     println!("  Model:           {}", settings.model);
     println!("  LLM Provider:    {}", settings.llm_provider);
-    println!("  API Key:         {}", if settings.api_key.is_some() { "[configured]" } else { "[not set]" });
+    println!(
+        "  API Key:         {}",
+        if settings.api_key.is_some() { "[configured]" } else { "[not set]" }
+    );
     println!("  Theme:           {:?}", settings.theme);
     println!("  Permission Mode: {:?}", settings.permission_mode);
-    
+
     if let Some(base_url) = &settings.llm_base_url {
         println!("  Base URL:        {}", base_url);
     }
-    
+
     if let Some(budget) = settings.max_budget_usd {
         println!("  Max Budget:      ${:.2}", budget);
     }
@@ -33,7 +36,7 @@ fn main() {
 
     // Show how to build settings programmatically
     println!("\n--- Building Settings Programmatically ---");
-    
+
     let custom_settings = theasus_settings::SettingsBuilder::new()
         .model("claude-3-sonnet")
         .theme(Theme::Light)

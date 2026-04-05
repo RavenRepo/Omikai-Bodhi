@@ -34,18 +34,15 @@ fn convert_to_llm_message(msg: &theasus_core::Message) -> LlmMessage {
                     theasus_core::ContentBlock::Text { text } => {
                         LlmContentBlock::Text { text: text.clone() }
                     }
-                    theasus_core::ContentBlock::Image { url, detail: _ } => LlmContentBlock::Text {
-                        text: format!("[Image: {}]", url),
-                    },
-                    theasus_core::ContentBlock::ToolUse { tool } => LlmContentBlock::Text {
-                        text: format!("[Tool: {}]", tool.name),
-                    },
-                    theasus_core::ContentBlock::ToolResult {
-                        tool_use_id: _,
-                        content,
-                    } => LlmContentBlock::Text {
-                        text: content.clone(),
-                    },
+                    theasus_core::ContentBlock::Image { url, detail: _ } => {
+                        LlmContentBlock::Text { text: format!("[Image: {}]", url) }
+                    }
+                    theasus_core::ContentBlock::ToolUse { tool } => {
+                        LlmContentBlock::Text { text: format!("[Tool: {}]", tool.name) }
+                    }
+                    theasus_core::ContentBlock::ToolResult { tool_use_id: _, content } => {
+                        LlmContentBlock::Text { text: content.clone() }
+                    }
                 })
                 .collect(),
             timestamp: m.timestamp,
@@ -61,19 +58,14 @@ fn convert_to_llm_message(msg: &theasus_core::Message) -> LlmMessage {
                             LlmContentBlock::Text { text: text.clone() }
                         }
                         theasus_core::ContentBlock::Image { url, detail: _ } => {
-                            LlmContentBlock::Text {
-                                text: format!("[Image: {}]", url),
-                            }
+                            LlmContentBlock::Text { text: format!("[Image: {}]", url) }
                         }
-                        theasus_core::ContentBlock::ToolUse { tool } => LlmContentBlock::Text {
-                            text: format!("[Tool: {}]", tool.name),
-                        },
-                        theasus_core::ContentBlock::ToolResult {
-                            tool_use_id: _,
-                            content,
-                        } => LlmContentBlock::Text {
-                            text: content.clone(),
-                        },
+                        theasus_core::ContentBlock::ToolUse { tool } => {
+                            LlmContentBlock::Text { text: format!("[Tool: {}]", tool.name) }
+                        }
+                        theasus_core::ContentBlock::ToolResult { tool_use_id: _, content } => {
+                            LlmContentBlock::Text { text: content.clone() }
+                        }
                     })
                     .collect(),
                 tool_calls: vec![],
@@ -89,9 +81,7 @@ fn convert_to_llm_message(msg: &theasus_core::Message) -> LlmMessage {
         }
         CoreMessage::System(m) => LlmMessage::System(theasus_language_model::SystemMessage {
             id: Uuid::new_v4(),
-            content: vec![LlmContentBlock::Text {
-                text: m.content.clone(),
-            }],
+            content: vec![LlmContentBlock::Text { text: m.content.clone() }],
             timestamp: Utc::now(),
         }),
         _ => LlmMessage::User(theasus_language_model::UserMessage {
@@ -253,9 +243,7 @@ impl App {
                     if result.success {
                         result.output
                     } else {
-                        result
-                            .error
-                            .unwrap_or_else(|| "Tool execution failed".to_string())
+                        result.error.unwrap_or_else(|| "Tool execution failed".to_string())
                     }
                 }
                 Err(e) => e.to_string(),
@@ -297,11 +285,7 @@ impl App {
 
         match cmd {
             Some(cmd) => {
-                let args = input
-                    .trim_start_matches('/')
-                    .split_once(' ')
-                    .map(|x| x.1)
-                    .unwrap_or("");
+                let args = input.trim_start_matches('/').split_once(' ').map(|x| x.1).unwrap_or("");
                 let context = theasus_commands::CommandContext {
                     cwd: self.cwd.clone(),
                     session_id: self.session_id,
@@ -344,12 +328,8 @@ impl App {
         self.query_engine.add_user_message(input);
 
         if let Some(_client) = &self.llm_manager.client {
-            let llm_messages: Vec<LlmMessage> = self
-                .query_engine
-                .get_messages()
-                .iter()
-                .map(convert_to_llm_message)
-                .collect();
+            let llm_messages: Vec<LlmMessage> =
+                self.query_engine.get_messages().iter().map(convert_to_llm_message).collect();
 
             let tools = self.get_tool_definitions();
 

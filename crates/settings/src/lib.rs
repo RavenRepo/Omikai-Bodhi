@@ -311,11 +311,12 @@ impl SessionManager {
     }
 
     pub async fn resume_session(&self, session_id: Uuid) -> std::io::Result<Session> {
-        self.load_session(session_id)?
-            .ok_or_else(|| std::io::Error::new(
+        self.load_session(session_id)?.ok_or_else(|| {
+            std::io::Error::new(
                 std::io::ErrorKind::NotFound,
                 format!("Session {} not found", session_id),
-            ))
+            )
+        })
     }
 
     pub fn get_latest_session(&self) -> std::io::Result<Option<Session>> {
@@ -324,10 +325,7 @@ impl SessionManager {
     }
 
     pub fn create_session(&self, name: Option<&str>) -> Session {
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
 
         Session {
             id: Uuid::new_v4(),
@@ -364,8 +362,7 @@ mod tests {
     fn test_settings_serialization() {
         let settings = Settings::default();
         let json = serde_json::to_string(&settings).expect("Failed to serialize");
-        let deserialized: Settings =
-            serde_json::from_str(&json).expect("Failed to deserialize");
+        let deserialized: Settings = serde_json::from_str(&json).expect("Failed to deserialize");
         assert_eq!(deserialized.model, settings.model);
         assert_eq!(deserialized.llm_provider, settings.llm_provider);
         assert_eq!(deserialized.theme, settings.theme);
@@ -390,10 +387,7 @@ mod tests {
 
     #[test]
     fn test_session_creation() {
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
 
         let session = Session {
             id: Uuid::new_v4(),

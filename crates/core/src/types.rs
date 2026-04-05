@@ -158,12 +158,7 @@ impl Default for Task {
 
 impl Task {
     pub fn new(task_type: TaskType) -> Self {
-        Self {
-            id: Uuid::new_v4(),
-            task_type,
-            status: TaskStatus::Pending,
-            created_at: Utc::now(),
-        }
+        Self { id: Uuid::new_v4(), task_type, status: TaskStatus::Pending, created_at: Utc::now() }
     }
 }
 
@@ -227,9 +222,7 @@ impl Message {
     }
 
     pub fn system(content: impl Into<String>) -> Self {
-        Message::System(SystemMessage {
-            content: content.into(),
-        })
+        Message::System(SystemMessage { content: content.into() })
     }
 
     pub fn tool_result(tool_use_id: impl Into<String>, content: impl Into<String>) -> Self {
@@ -284,20 +277,10 @@ pub struct AttachmentMessage {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum ContentBlock {
-    Text {
-        text: String,
-    },
-    Image {
-        url: String,
-        detail: String,
-    },
-    ToolUse {
-        tool: ToolCall,
-    },
-    ToolResult {
-        tool_use_id: String,
-        content: String,
-    },
+    Text { text: String },
+    Image { url: String, detail: String },
+    ToolUse { tool: ToolCall },
+    ToolResult { tool_use_id: String, content: String },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -560,10 +543,7 @@ mod tests {
 
     #[test]
     fn test_task_type_json_format() {
-        assert_eq!(
-            serde_json::to_string(&TaskType::LocalBash).unwrap(),
-            "\"LocalBash\""
-        );
+        assert_eq!(serde_json::to_string(&TaskType::LocalBash).unwrap(), "\"LocalBash\"");
         assert_eq!(
             serde_json::to_string(&TaskType::InProcessTeammate).unwrap(),
             "\"InProcessTeammate\""
@@ -572,14 +552,8 @@ mod tests {
 
     #[test]
     fn test_task_status_json_format() {
-        assert_eq!(
-            serde_json::to_string(&TaskStatus::Pending).unwrap(),
-            "\"Pending\""
-        );
-        assert_eq!(
-            serde_json::to_string(&TaskStatus::Completed).unwrap(),
-            "\"Completed\""
-        );
+        assert_eq!(serde_json::to_string(&TaskStatus::Pending).unwrap(), "\"Pending\"");
+        assert_eq!(serde_json::to_string(&TaskStatus::Completed).unwrap(), "\"Completed\"");
     }
 
     #[test]
@@ -726,6 +700,9 @@ mod tests {
         let deserialized: AppState = serde_json::from_str(&json).unwrap();
 
         assert_eq!(state.tasks.len(), deserialized.tasks.len());
-        assert_eq!(state.tool_permission_context.session_rules, deserialized.tool_permission_context.session_rules);
+        assert_eq!(
+            state.tool_permission_context.session_rules,
+            deserialized.tool_permission_context.session_rules
+        );
     }
 }

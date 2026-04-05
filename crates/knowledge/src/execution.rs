@@ -162,13 +162,7 @@ impl CompiledExecutionContext {
     pub fn with_suggested_criteria(mut self, criteria: Vec<VerifiableCriterion>) -> Self {
         self.suggested_criteria = criteria;
         // Update recommendation based on criteria complexity
-        if self
-            .suggested_criteria
-            .iter()
-            .filter(|c| c.is_blocking)
-            .count()
-            > 3
-        {
+        if self.suggested_criteria.iter().filter(|c| c.is_blocking).count() > 3 {
             self.recommend_deep_evaluation = true;
         }
         self
@@ -228,13 +222,7 @@ pub struct PostExecutionCapture {
 impl PostExecutionCapture {
     /// Create a new post-execution capture.
     pub fn new(task_id: Uuid, contract: ExecutionContract, result: TaskResult) -> Self {
-        Self {
-            task_id,
-            contract,
-            result,
-            observations: Vec::new(),
-            completed_at: Utc::now(),
-        }
+        Self { task_id, contract, result, observations: Vec::new(), completed_at: Utc::now() }
     }
 
     /// Add an observation (builder pattern).
@@ -647,10 +635,7 @@ mod tests {
 
         let entry_type = obs.to_entry_type();
         assert_eq!(entry_type, EntryType::Pattern);
-        assert_eq!(
-            obs.title(),
-            "Always use parameterized queries for database access"
-        );
+        assert_eq!(obs.title(), "Always use parameterized queries for database access");
     }
 
     #[test]
@@ -668,10 +653,7 @@ mod tests {
         let capture = PostExecutionCapture::new(
             Uuid::new_v4(),
             contract,
-            TaskResult::Success {
-                summary: "Task completed".into(),
-                artifacts: vec![],
-            },
+            TaskResult::Success { summary: "Task completed".into(), artifacts: vec![] },
         )
         .with_observation(
             Observation::new("Pattern observed", ObservationType::Pattern)
@@ -686,24 +668,16 @@ mod tests {
 
     #[test]
     fn test_task_result_checks() {
-        let success = TaskResult::Success {
-            summary: "Done".into(),
-            artifacts: vec![],
-        };
+        let success = TaskResult::Success { summary: "Done".into(), artifacts: vec![] };
         assert!(success.is_success());
         assert!(success.is_at_least_partial());
 
-        let partial = TaskResult::PartialSuccess {
-            completed: "Some".into(),
-            incomplete: "Other".into(),
-        };
+        let partial =
+            TaskResult::PartialSuccess { completed: "Some".into(), incomplete: "Other".into() };
         assert!(!partial.is_success());
         assert!(partial.is_at_least_partial());
 
-        let failure = TaskResult::Failure {
-            error: "Failed".into(),
-            recoverable: true,
-        };
+        let failure = TaskResult::Failure { error: "Failed".into(), recoverable: true };
         assert!(!failure.is_success());
         assert!(!failure.is_at_least_partial());
     }

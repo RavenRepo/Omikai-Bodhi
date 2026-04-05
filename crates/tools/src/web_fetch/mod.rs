@@ -137,19 +137,13 @@ impl Tool for WebFetchTool {
             (body, false)
         };
 
-        let output = WebFetchOutput {
-            status,
-            headers: response_headers,
-            body,
-            truncated,
-        };
+        let output = WebFetchOutput { status, headers: response_headers, body, truncated };
 
-        let output_json = serde_json::to_string_pretty(&output).map_err(|e| {
-            crate::TheasusError::Tool {
+        let output_json =
+            serde_json::to_string_pretty(&output).map_err(|e| crate::TheasusError::Tool {
                 tool: "web_fetch".to_string(),
                 reason: format!("Failed to serialize output: {}", e),
-            }
-        })?;
+            })?;
 
         Ok(ToolResult::success(output_json))
     }
@@ -167,11 +161,7 @@ mod tests {
     use std::path::PathBuf;
 
     fn test_context() -> ToolContext {
-        ToolContext {
-            cwd: PathBuf::from("."),
-            session_id: uuid::Uuid::new_v4(),
-            user_id: None,
-        }
+        ToolContext { cwd: PathBuf::from("."), session_id: uuid::Uuid::new_v4(), user_id: None }
     }
 
     #[test]
@@ -184,7 +174,8 @@ mod tests {
 
     #[test]
     fn test_default_method() {
-        let input: WebFetchInput = serde_json::from_str(r#"{"url": "https://example.com"}"#).unwrap();
+        let input: WebFetchInput =
+            serde_json::from_str(r#"{"url": "https://example.com"}"#).unwrap();
         assert_eq!(input.method, "GET");
     }
 

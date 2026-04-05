@@ -37,12 +37,8 @@ impl LlmManager {
 
         let http_client: Arc<dyn theasus_http_client::HttpClient> = Arc::new(http_client);
 
-        let client = OmikProvider::new(
-            http_client,
-            api_key.clone(),
-            provider,
-            settings.model.clone(),
-        );
+        let client =
+            OmikProvider::new(http_client, api_key.clone(), provider, settings.model.clone());
 
         Some(Arc::new(client))
     }

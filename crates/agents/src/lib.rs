@@ -31,8 +31,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use theasus_core::{Message, Result, ToolCall};
 use theasus_knowledge::{
-    KnowledgeEntry, KnowledgeProvider, KnowledgeQuery, EntryType,
-    promotion::PromotionEvaluation,
+    promotion::PromotionEvaluation, EntryType, KnowledgeEntry, KnowledgeProvider, KnowledgeQuery,
 };
 use theasus_tools::{ToolDefinition, ToolRegistry, ToolResult};
 use tokio::sync::RwLock;
@@ -91,7 +90,11 @@ pub struct AgentDefinition {
 }
 
 impl AgentDefinition {
-    pub fn new(name: impl Into<String>, description: impl Into<String>, system_prompt: impl Into<String>) -> Self {
+    pub fn new(
+        name: impl Into<String>,
+        description: impl Into<String>,
+        system_prompt: impl Into<String>,
+    ) -> Self {
         Self {
             name: name.into(),
             description: description.into(),
@@ -376,10 +379,7 @@ impl AgentContext {
     pub fn get_tools(&self, filter: Option<&[String]>) -> Vec<ToolDefinition> {
         let all_tools = self.tool_registry.list_tools();
         match filter {
-            Some(allowed) => all_tools
-                .into_iter()
-                .filter(|t| allowed.contains(&t.name))
-                .collect(),
+            Some(allowed) => all_tools.into_iter().filter(|t| allowed.contains(&t.name)).collect(),
             None => all_tools,
         }
     }
@@ -436,15 +436,10 @@ impl LlmAgent {
         let mut system_prompt = self.definition.system_prompt.clone();
 
         // Inject domain knowledge if both binding and provider are present
-        if let (Some(binding), Some(kp)) = (
-            &self.definition.knowledge,
-            &context.knowledge_provider,
-        ) {
+        if let (Some(binding), Some(kp)) = (&self.definition.knowledge, &context.knowledge_provider)
+        {
             match kp
-                .compile_context(
-                    &binding.pre_execution_queries,
-                    binding.max_context_tokens,
-                )
+                .compile_context(&binding.pre_execution_queries, binding.max_context_tokens)
                 .await
             {
                 Ok(domain_context) => {
@@ -512,18 +507,14 @@ impl LlmAgent {
                 // ========================================================
                 // POST-EXECUTION: Knowledge capture with graded promotion
                 // ========================================================
-                if let (Some(binding), Some(kp)) = (
-                    &self.definition.knowledge,
-                    &context.knowledge_provider,
-                ) {
+                if let (Some(binding), Some(kp)) =
+                    (&self.definition.knowledge, &context.knowledge_provider)
+                {
                     for capture in &binding.post_execution_captures {
                         if capture.should_trigger(&result) {
                             let mut entry = KnowledgeEntry::from_agent_output(
                                 &capture.domain,
-                                format!(
-                                    "[{}] Observation from task",
-                                    self.definition.name
-                                ),
+                                format!("[{}] Observation from task", self.definition.name),
                                 &result.output,
                                 capture.entry_type.clone(),
                             );
@@ -575,9 +566,7 @@ impl LlmAgent {
             for tool_call in &response.tool_calls {
                 all_tool_calls.push(tool_call.clone());
 
-                let result = context
-                    .execute_tool(&tool_call.name, tool_call.input.clone())
-                    .await;
+                let result = context.execute_tool(&tool_call.name, tool_call.input.clone()).await;
 
                 let tool_result = match result {
                     Ok(r) => r,
@@ -894,9 +883,7 @@ pub struct AgentRegistry {
 
 impl AgentRegistry {
     pub fn new() -> Self {
-        let mut registry = Self {
-            agents: HashMap::new(),
-        };
+        let mut registry = Self { agents: HashMap::new() };
         registry.register_defaults();
         registry
     }
@@ -911,8 +898,7 @@ impl AgentRegistry {
     }
 
     pub fn register<A: Agent + 'static>(&mut self, agent: A) {
-        self.agents
-            .insert(agent.definition().name.clone(), Arc::new(agent));
+        self.agents.insert(agent.definition().name.clone(), Arc::new(agent));
     }
 
     pub fn get(&self, name: &str) -> Option<Arc<dyn Agent>> {
@@ -1019,9 +1005,9 @@ impl AgentOrchestrator {
     pub async fn run_task(&self, task_id: Uuid) -> Result<AgentResult> {
         let task = {
             let mut tasks = self.tasks.write().await;
-            let task = tasks.get_mut(&task_id).ok_or_else(|| {
-                theasus_core::TheasusError::Other("Task not found".to_string())
-            })?;
+            let task = tasks
+                .get_mut(&task_id)
+                .ok_or_else(|| theasus_core::TheasusError::Other("Task not found".to_string()))?;
             task.status = TaskStatus::Running;
             task.clone()
         };
@@ -1048,22 +1034,12 @@ impl AgentOrchestrator {
         {
             let mut tasks = self.tasks.write().await;
             if let Some(t) = tasks.get_mut(&task_id) {
-                t.status = if result.is_ok() {
-                    TaskStatus::Completed
-                } else {
-                    TaskStatus::Failed
-                };
+                t.status = if result.is_ok() { TaskStatus::Completed } else { TaskStatus::Failed };
             }
         }
 
         if let Ok(ref r) = result {
-            self.results.write().await.insert(
-                task_id,
-                TaskResult {
-                    task_id,
-                    result: r.clone(),
-                },
-            );
+            self.results.write().await.insert(task_id, TaskResult { task_id, result: r.clone() });
         }
 
         result
@@ -1166,13 +1142,7 @@ impl AgentOrchestrator {
                 }
             }
 
-            results.write().await.insert(
-                task_id,
-                TaskResult {
-                    task_id,
-                    result: agent_result,
-                },
-            );
+            results.write().await.insert(task_id, TaskResult { task_id, result: agent_result });
         });
 
         Ok(task_id)
@@ -1251,13 +1221,10 @@ impl AgentOrchestrator {
                 }
             }
 
-            results.write().await.insert(
-                child_task_id,
-                TaskResult {
-                    task_id: child_task_id,
-                    result: agent_result,
-                },
-            );
+            results
+                .write()
+                .await
+                .insert(child_task_id, TaskResult { task_id: child_task_id, result: agent_result });
         });
 
         Ok(child_task_id)
@@ -1327,11 +1294,9 @@ mod tests {
         let def = AgentDefinition::new("security", "Security agent", "Check security")
             .with_knowledge(KnowledgeBinding {
                 domains: vec!["security".into()],
-                pre_execution_queries: vec![
-                    KnowledgeQuery::new()
-                        .with_domains(vec!["security".into()])
-                        .with_entry_types(vec![EntryType::Rule]),
-                ],
+                pre_execution_queries: vec![KnowledgeQuery::new()
+                    .with_domains(vec!["security".into()])
+                    .with_entry_types(vec![EntryType::Rule])],
                 post_execution_captures: vec![CapturePattern {
                     domain: "security".into(),
                     entry_type: EntryType::Observation,
@@ -1350,12 +1315,13 @@ mod tests {
 
     #[test]
     fn test_agent_definition_with_reasoning() {
-        let def = AgentDefinition::new("reviewer", "Code reviewer", "Review code")
-            .with_reasoning(ReasoningFramework {
+        let def = AgentDefinition::new("reviewer", "Code reviewer", "Review code").with_reasoning(
+            ReasoningFramework {
                 approach: ReasoningApproach::ConstraintFirst,
                 constraints: vec!["Check OWASP Top 10".into()],
                 output_format: Some("FINDING: [severity] [description]".into()),
-            });
+            },
+        );
 
         assert!(def.reasoning.is_some());
         let reasoning = def.reasoning.unwrap();
@@ -1439,8 +1405,7 @@ mod tests {
 
     #[test]
     fn test_agent_result() {
-        let result = AgentResult::success("Done")
-            .with_turns(3);
+        let result = AgentResult::success("Done").with_turns(3);
 
         assert!(result.success);
         assert_eq!(result.output, "Done");
@@ -1547,9 +1512,7 @@ mod tests {
 
         // Try to fork from non-existent parent
         let fake_parent_id = Uuid::new_v4();
-        let result = orchestrator
-            .fork_agent(fake_parent_id, "task", "query")
-            .await;
+        let result = orchestrator.fork_agent(fake_parent_id, "task", "query").await;
 
         assert!(result.is_err());
     }

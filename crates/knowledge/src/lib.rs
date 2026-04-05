@@ -505,11 +505,7 @@ pub struct DomainContext {
 impl DomainContext {
     /// Create an empty domain context with no knowledge entries.
     pub fn empty() -> Self {
-        Self {
-            entries: Vec::new(),
-            compiled_prompt: String::new(),
-            token_estimate: 0,
-        }
+        Self { entries: Vec::new(), compiled_prompt: String::new(), token_estimate: 0 }
     }
 
     /// Compile a set of knowledge entries into a formatted prompt.
@@ -539,11 +535,9 @@ impl DomainContext {
                     EntryType::History => 5,
                 }
             };
-            type_priority(a).cmp(&type_priority(b)).then(
-                b.confidence
-                    .partial_cmp(&a.confidence)
-                    .unwrap_or(std::cmp::Ordering::Equal),
-            )
+            type_priority(a)
+                .cmp(&type_priority(b))
+                .then(b.confidence.partial_cmp(&a.confidence).unwrap_or(std::cmp::Ordering::Equal))
         });
 
         let max_chars = max_tokens.unwrap_or(usize::MAX / 4) * 4;
@@ -571,11 +565,7 @@ impl DomainContext {
         }
 
         let token_estimate = prompt.len() / 4;
-        Self {
-            entries: included_entries,
-            compiled_prompt: prompt,
-            token_estimate,
-        }
+        Self { entries: included_entries, compiled_prompt: prompt, token_estimate }
     }
 
     /// Format a single entry for prompt inclusion.
@@ -616,10 +606,7 @@ impl DomainContext {
 
     /// Get entries with confidence above a custom threshold.
     pub fn high_confidence_entries_with_threshold(&self, threshold: f32) -> Vec<&KnowledgeEntry> {
-        self.entries
-            .iter()
-            .filter(|e| e.confidence >= threshold)
-            .collect()
+        self.entries.iter().filter(|e| e.confidence >= threshold).collect()
     }
 
     /// Determine if deep evaluation should be run for a task.
@@ -829,10 +816,7 @@ mod tests {
 
     #[test]
     fn test_entry_type_display() {
-        assert_eq!(
-            EntryType::ArchitectureDecision.to_string(),
-            "Architecture Decision"
-        );
+        assert_eq!(EntryType::ArchitectureDecision.to_string(), "Architecture Decision");
         assert_eq!(EntryType::Pattern.to_string(), "Pattern");
         assert_eq!(EntryType::Rule.to_string(), "Rule");
         assert_eq!(EntryType::Observation.to_string(), "Observation");
@@ -843,10 +827,7 @@ mod tests {
     #[test]
     fn test_knowledge_source_display() {
         assert_eq!(KnowledgeSource::Manual.to_string(), "Manual");
-        assert_eq!(
-            KnowledgeSource::AgentDiscovered.to_string(),
-            "Agent Discovered"
-        );
+        assert_eq!(KnowledgeSource::AgentDiscovered.to_string(), "Agent Discovered");
         assert_eq!(KnowledgeSource::Imported.to_string(), "Imported");
         assert_eq!(KnowledgeSource::Inferred.to_string(), "Inferred");
     }
@@ -937,9 +918,8 @@ mod tests {
         assert!(matching.matches(&entry));
 
         // Fails on confidence
-        let not_matching = KnowledgeQuery::new()
-            .with_domains(vec!["security".into()])
-            .with_min_confidence(0.95);
+        let not_matching =
+            KnowledgeQuery::new().with_domains(vec!["security".into()]).with_min_confidence(0.95);
         assert!(!not_matching.matches(&entry));
     }
 
@@ -986,10 +966,7 @@ mod tests {
 
         // Rules section should come first
         let rule_pos = context.compiled_prompt.find("Rule").unwrap();
-        let adr_pos = context
-            .compiled_prompt
-            .find("Architecture Decision")
-            .unwrap();
+        let adr_pos = context.compiled_prompt.find("Architecture Decision").unwrap();
         assert!(rule_pos < adr_pos);
     }
 

@@ -60,10 +60,7 @@ pub struct Theasus {
 ///
 /// A new Theasus instance wrapped in a Result
 pub async fn new_theasus(config: Config) -> Result<Theasus> {
-    Ok(Theasus {
-        state: Arc::new(RwLock::new(AppState::default())),
-        config,
-    })
+    Ok(Theasus { state: Arc::new(RwLock::new(AppState::default())), config })
 }
 
 impl Theasus {
@@ -80,16 +77,10 @@ impl Theasus {
         let mut state = self.state.write().await;
         state.messages.push(Message::User(UserMessage {
             id: Uuid::new_v4(),
-            content: vec![ContentBlock::Text {
-                text: input.to_string(),
-            }],
+            content: vec![ContentBlock::Text { text: input.to_string() }],
             timestamp: Utc::now(),
         }));
-        Ok(Response {
-            messages: vec![],
-            tool_calls: vec![],
-            usage: Usage::default(),
-        })
+        Ok(Response { messages: vec![], tool_calls: vec![], usage: Usage::default() })
     }
 }
 

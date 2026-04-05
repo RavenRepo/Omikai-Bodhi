@@ -32,6 +32,14 @@ version = "0.1.0"
 edition = "2021"
 license = "MIT"
 rust-version = "1.75"
+authors = ["Omikai <team@omikai.io>"]
+description = "AI-native terminal application with multi-agent orchestration, MCP integration, and extensible tool system"
+homepage = "https://omikai.io"
+repository = "https://github.com/RavenRepo/Omikai-Bodhi"
+documentation = "https://docs.rs/theasus-core"
+readme = "README.md"
+keywords = ["ai", "terminal", "llm", "agents", "cli"]
+categories = ["command-line-utilities", "development-tools"]
 
 [workspace.dependencies]
 # Internal crates

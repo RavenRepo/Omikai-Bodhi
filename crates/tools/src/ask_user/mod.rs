@@ -68,12 +68,11 @@ impl Tool for AskUserTool {
             choices: ask_input.choices,
         };
 
-        let output_json = serde_json::to_string_pretty(&output).map_err(|e| {
-            crate::TheasusError::Tool {
+        let output_json =
+            serde_json::to_string_pretty(&output).map_err(|e| crate::TheasusError::Tool {
                 tool: "ask_user".to_string(),
                 reason: format!("Failed to serialize output: {}", e),
-            }
-        })?;
+            })?;
 
         Ok(ToolResult::success(output_json))
     }
@@ -91,11 +90,7 @@ mod tests {
     use std::path::PathBuf;
 
     fn test_context() -> ToolContext {
-        ToolContext {
-            cwd: PathBuf::from("."),
-            session_id: uuid::Uuid::new_v4(),
-            user_id: None,
-        }
+        ToolContext { cwd: PathBuf::from("."), session_id: uuid::Uuid::new_v4(), user_id: None }
     }
 
     #[tokio::test]
@@ -142,11 +137,7 @@ mod tests {
         assert_eq!(output.question, "Select your preferred theme:");
         assert_eq!(
             output.choices,
-            Some(vec![
-                "dark".to_string(),
-                "light".to_string(),
-                "system".to_string()
-            ])
+            Some(vec!["dark".to_string(), "light".to_string(), "system".to_string()])
         );
     }
 }

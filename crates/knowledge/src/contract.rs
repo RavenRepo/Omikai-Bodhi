@@ -147,10 +147,7 @@ impl ExecutionContract {
 
     /// Count the number of blocking criteria.
     pub fn blocking_criteria_count(&self) -> usize {
-        self.success_criteria
-            .iter()
-            .filter(|c| c.is_blocking)
-            .count()
+        self.success_criteria.iter().filter(|c| c.is_blocking).count()
     }
 
     /// Check if this is a complex contract (many blocking criteria).
@@ -375,22 +372,12 @@ pub struct CriterionResult {
 impl CriterionResult {
     /// Create a passing result.
     pub fn pass(index: usize) -> Self {
-        Self {
-            criterion_index: index,
-            passed: true,
-            evidence: None,
-            notes: None,
-        }
+        Self { criterion_index: index, passed: true, evidence: None, notes: None }
     }
 
     /// Create a failing result.
     pub fn fail(index: usize) -> Self {
-        Self {
-            criterion_index: index,
-            passed: false,
-            evidence: None,
-            notes: None,
-        }
+        Self { criterion_index: index, passed: false, evidence: None, notes: None }
     }
 
     /// Add evidence to this result (builder pattern).
@@ -496,11 +483,8 @@ mod tests {
             .with_criterion(VerifiableCriterion::new("C2").blocking())
             .with_criterion(VerifiableCriterion::new("C3"));
 
-        let results = vec![
-            CriterionResult::pass(0),
-            CriterionResult::pass(1),
-            CriterionResult::pass(2),
-        ];
+        let results =
+            vec![CriterionResult::pass(0), CriterionResult::pass(1), CriterionResult::pass(2)];
 
         let eval = contract.evaluate(&results);
         assert!(eval.blocking_fulfilled);
@@ -516,10 +500,8 @@ mod tests {
             .with_criterion(VerifiableCriterion::new("C2"))
             .with_confidence_floor(0.7);
 
-        let results = vec![
-            CriterionResult::fail(0).with_notes("Build failed"),
-            CriterionResult::pass(1),
-        ];
+        let results =
+            vec![CriterionResult::fail(0).with_notes("Build failed"), CriterionResult::pass(1)];
 
         let eval = contract.evaluate(&results);
         assert!(!eval.blocking_fulfilled);

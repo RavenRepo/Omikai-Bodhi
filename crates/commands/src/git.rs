@@ -79,7 +79,12 @@ impl Command for CommitCommand {
                 (Ok(d), Ok(s)) => format!("{}\n{}", d, s),
                 (Ok(d), Err(_)) => d,
                 (Err(_), Ok(s)) => s,
-                (Err(e), Err(_)) => return Ok(CommandResult::error(format!("No changes to commit or git error: {}", e))),
+                (Err(e), Err(_)) => {
+                    return Ok(CommandResult::error(format!(
+                        "No changes to commit or git error: {}",
+                        e
+                    )))
+                }
             };
 
             if combined_diff.trim().is_empty() {

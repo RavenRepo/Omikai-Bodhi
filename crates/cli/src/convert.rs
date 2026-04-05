@@ -15,18 +15,15 @@ pub fn convert_core_to_llm(msg: &CoreMessage) -> LlmMessage {
                     theasus_core::ContentBlock::Text { text } => {
                         LlmContentBlock::Text { text: text.clone() }
                     }
-                    theasus_core::ContentBlock::Image { url, detail: _ } => LlmContentBlock::Text {
-                        text: format!("[Image: {}]", url),
-                    },
-                    theasus_core::ContentBlock::ToolUse { tool } => LlmContentBlock::Text {
-                        text: format!("[Tool: {}]", tool.name),
-                    },
-                    theasus_core::ContentBlock::ToolResult {
-                        tool_use_id: _,
-                        content,
-                    } => LlmContentBlock::Text {
-                        text: content.clone(),
-                    },
+                    theasus_core::ContentBlock::Image { url, detail: _ } => {
+                        LlmContentBlock::Text { text: format!("[Image: {}]", url) }
+                    }
+                    theasus_core::ContentBlock::ToolUse { tool } => {
+                        LlmContentBlock::Text { text: format!("[Tool: {}]", tool.name) }
+                    }
+                    theasus_core::ContentBlock::ToolResult { tool_use_id: _, content } => {
+                        LlmContentBlock::Text { text: content.clone() }
+                    }
                 })
                 .collect(),
             timestamp: m.timestamp,
@@ -40,18 +37,15 @@ pub fn convert_core_to_llm(msg: &CoreMessage) -> LlmMessage {
                     theasus_core::ContentBlock::Text { text } => {
                         LlmContentBlock::Text { text: text.clone() }
                     }
-                    theasus_core::ContentBlock::Image { url, detail: _ } => LlmContentBlock::Text {
-                        text: format!("[Image: {}]", url),
-                    },
-                    theasus_core::ContentBlock::ToolUse { tool } => LlmContentBlock::Text {
-                        text: format!("[Tool: {}]", tool.name),
-                    },
-                    theasus_core::ContentBlock::ToolResult {
-                        tool_use_id: _,
-                        content,
-                    } => LlmContentBlock::Text {
-                        text: content.clone(),
-                    },
+                    theasus_core::ContentBlock::Image { url, detail: _ } => {
+                        LlmContentBlock::Text { text: format!("[Image: {}]", url) }
+                    }
+                    theasus_core::ContentBlock::ToolUse { tool } => {
+                        LlmContentBlock::Text { text: format!("[Tool: {}]", tool.name) }
+                    }
+                    theasus_core::ContentBlock::ToolResult { tool_use_id: _, content } => {
+                        LlmContentBlock::Text { text: content.clone() }
+                    }
                 })
                 .collect(),
             tool_calls: vec![],
@@ -66,9 +60,7 @@ pub fn convert_core_to_llm(msg: &CoreMessage) -> LlmMessage {
         }),
         CoreMessage::System(m) => LlmMessage::System(SystemMessage {
             id: uuid::Uuid::new_v4(),
-            content: vec![LlmContentBlock::Text {
-                text: m.content.clone(),
-            }],
+            content: vec![LlmContentBlock::Text { text: m.content.clone() }],
             timestamp: chrono::Utc::now(),
         }),
         _ => LlmMessage::User(UserMessage {

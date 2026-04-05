@@ -100,12 +100,7 @@ pub struct PromotionEvaluation {
 impl PromotionEvaluation {
     /// Create a new evaluation with all scores at zero.
     pub fn new() -> Self {
-        Self {
-            correctness: 0.0,
-            generalizability: 0.0,
-            completeness: 0.0,
-            independence: 0.0,
-        }
+        Self { correctness: 0.0, generalizability: 0.0, completeness: 0.0, independence: 0.0 }
     }
 
     /// Create an evaluation with specific scores.
@@ -231,12 +226,7 @@ impl PromotionEvaluation {
                 independence: 0.25, // Single context
             }
         } else {
-            Self {
-                correctness: 0.2,
-                generalizability: 0.3,
-                completeness: 0.3,
-                independence: 0.25,
-            }
+            Self { correctness: 0.2, generalizability: 0.3, completeness: 0.3, independence: 0.25 }
         }
     }
 }
@@ -300,11 +290,7 @@ impl IndependenceTracker {
         self.total_verifications += 1;
 
         // Only add if this is a new context
-        if !self
-            .verified_contexts
-            .iter()
-            .any(|c| c.context_id == record.context_id)
-        {
+        if !self.verified_contexts.iter().any(|c| c.context_id == record.context_id) {
             self.verified_contexts.push(record);
         }
     }
@@ -344,12 +330,7 @@ pub struct EvaluationBuilder {
 
 impl EvaluationBuilder {
     pub fn new() -> Self {
-        Self {
-            correctness: None,
-            generalizability: None,
-            completeness: None,
-            tracker: None,
-        }
+        Self { correctness: None, generalizability: None, completeness: None, tracker: None }
     }
 
     /// Set correctness from contract fulfillment score.

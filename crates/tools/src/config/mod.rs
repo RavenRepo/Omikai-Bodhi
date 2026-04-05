@@ -132,10 +132,7 @@ impl Tool for ConfigTool {
                         )));
                     }
                 };
-                Ok(ToolResult::success(format!(
-                    "{} = {}",
-                    config_input.key, value
-                )))
+                Ok(ToolResult::success(format!("{} = {}", config_input.key, value)))
             }
             ConfigAction::Set => {
                 let value = config_input.value.ok_or_else(|| crate::TheasusError::Tool {
@@ -148,15 +145,14 @@ impl Tool for ConfigTool {
                         settings.model = value.clone();
                     }
                     "theme" => {
-                        let theme = Self::parse_theme(&value).ok_or_else(|| {
-                            crate::TheasusError::Tool {
+                        let theme =
+                            Self::parse_theme(&value).ok_or_else(|| crate::TheasusError::Tool {
                                 tool: "config".to_string(),
                                 reason: format!(
                                     "Invalid theme value: {}. Valid values: dark, light, system",
                                     value
                                 ),
-                            }
-                        })?;
+                            })?;
                         settings.theme = theme;
                     }
                     "permission_mode" => {
@@ -184,10 +180,7 @@ impl Tool for ConfigTool {
                     reason: format!("Failed to save settings: {}", e),
                 })?;
 
-                Ok(ToolResult::success(format!(
-                    "Set {} = {}",
-                    config_input.key, value
-                )))
+                Ok(ToolResult::success(format!("Set {} = {}", config_input.key, value)))
             }
         }
     }
@@ -206,11 +199,7 @@ mod tests {
 
     #[allow(dead_code)]
     fn test_context() -> ToolContext {
-        ToolContext {
-            cwd: PathBuf::from("."),
-            session_id: uuid::Uuid::new_v4(),
-            user_id: None,
-        }
+        ToolContext { cwd: PathBuf::from("."), session_id: uuid::Uuid::new_v4(), user_id: None }
     }
 
     #[test]
@@ -223,10 +212,7 @@ mod tests {
 
     #[test]
     fn test_parse_permission_mode() {
-        assert_eq!(
-            ConfigTool::parse_permission_mode("default"),
-            Some(PermissionMode::Default)
-        );
+        assert_eq!(ConfigTool::parse_permission_mode("default"), Some(PermissionMode::Default));
         assert_eq!(
             ConfigTool::parse_permission_mode("accept_edits"),
             Some(PermissionMode::AcceptEdits)
@@ -235,10 +221,7 @@ mod tests {
             ConfigTool::parse_permission_mode("bypass_permissions"),
             Some(PermissionMode::BypassPermissions)
         );
-        assert_eq!(
-            ConfigTool::parse_permission_mode("auto"),
-            Some(PermissionMode::Auto)
-        );
+        assert_eq!(ConfigTool::parse_permission_mode("auto"), Some(PermissionMode::Auto));
         assert_eq!(ConfigTool::parse_permission_mode("invalid"), None);
     }
 

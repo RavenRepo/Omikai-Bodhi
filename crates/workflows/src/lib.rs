@@ -96,20 +96,19 @@ impl Workflow {
     }
 
     pub fn from_yaml(yaml: &str) -> Result<Self> {
-        serde_yaml::from_str(yaml).map_err(|e| {
-            theasus_core::TheasusError::Other(format!("Invalid workflow YAML: {}", e))
-        })
+        serde_yaml::from_str(yaml)
+            .map_err(|e| theasus_core::TheasusError::Other(format!("Invalid workflow YAML: {}", e)))
     }
 
     pub fn from_json(json: &str) -> Result<Self> {
-        serde_json::from_str(json).map_err(|e| {
-            theasus_core::TheasusError::Other(format!("Invalid workflow JSON: {}", e))
-        })
+        serde_json::from_str(json)
+            .map_err(|e| theasus_core::TheasusError::Other(format!("Invalid workflow JSON: {}", e)))
     }
 
     pub fn to_yaml(&self) -> Result<String> {
-        serde_yaml::to_string(self)
-            .map_err(|e| theasus_core::TheasusError::Other(format!("YAML serialization failed: {}", e)))
+        serde_yaml::to_string(self).map_err(|e| {
+            theasus_core::TheasusError::Other(format!("YAML serialization failed: {}", e))
+        })
     }
 }
 
@@ -171,38 +170,19 @@ pub enum WorkflowStep {
 
 impl WorkflowStep {
     pub fn tool(name: impl Into<String>, args: serde_json::Value) -> Self {
-        Self::Tool {
-            id: None,
-            name: name.into(),
-            args,
-            retry: None,
-        }
+        Self::Tool { id: None, name: name.into(), args, retry: None }
     }
 
     pub fn agent(name: impl Into<String>, query: impl Into<String>) -> Self {
-        Self::Agent {
-            id: None,
-            name: name.into(),
-            query: query.into(),
-            timeout_secs: None,
-        }
+        Self::Agent { id: None, name: name.into(), query: query.into(), timeout_secs: None }
     }
 
     pub fn parallel(steps: Vec<WorkflowStep>) -> Self {
-        Self::Parallel {
-            id: None,
-            steps,
-            fail_fast: false,
-        }
+        Self::Parallel { id: None, steps, fail_fast: false }
     }
 
     pub fn condition(cond: impl Into<String>, then: WorkflowStep) -> Self {
-        Self::Condition {
-            id: None,
-            condition: cond.into(),
-            then: Box::new(then),
-            else_step: None,
-        }
+        Self::Condition { id: None, condition: cond.into(), then: Box::new(then), else_step: None }
     }
 
     pub fn get_id(&self) -> Option<&str> {
@@ -248,19 +228,10 @@ fn default_retry_delay() -> u64 {
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Trigger {
     Manual,
-    FileChange {
-        patterns: Vec<String>,
-    },
-    Schedule {
-        cron: String,
-    },
-    Webhook {
-        path: String,
-        method: String,
-    },
-    Event {
-        name: String,
-    },
+    FileChange { patterns: Vec<String> },
+    Schedule { cron: String },
+    Webhook { path: String, method: String },
+    Event { name: String },
 }
 
 // ============================================================================
@@ -389,13 +360,14 @@ pub struct WorkflowExecutor {
 
 impl WorkflowExecutor {
     pub fn new(tool_registry: Arc<ToolRegistry>, agent_registry: Arc<AgentRegistry>) -> Self {
-        Self {
-            tool_registry,
-            agent_registry,
-        }
+        Self { tool_registry, agent_registry }
     }
 
-    pub async fn execute(&self, workflow: &Workflow, mut context: WorkflowContext) -> Result<WorkflowResult> {
+    pub async fn execute(
+        &self,
+        workflow: &Workflow,
+        mut context: WorkflowContext,
+    ) -> Result<WorkflowResult> {
         let start = std::time::Instant::now();
         tracing::info!("Starting workflow: {} (run_id: {})", workflow.name, context.run_id);
 
@@ -404,7 +376,8 @@ impl WorkflowExecutor {
         let mut last_error = None;
 
         for (idx, step) in workflow.steps.iter().enumerate() {
-            let step_id = step.get_id().map(String::from).unwrap_or_else(|| format!("step_{}", idx));
+            let step_id =
+                step.get_id().map(String::from).unwrap_or_else(|| format!("step_{}", idx));
 
             match self.execute_step(step, &mut context).await {
                 Ok(result) => {
@@ -433,9 +406,7 @@ impl WorkflowExecutor {
         let outputs: HashMap<String, serde_json::Value> = workflow
             .outputs
             .iter()
-            .filter_map(|o| {
-                context.get_var(&o.value).map(|v| (o.name.clone(), v.clone()))
-            })
+            .filter_map(|o| context.get_var(&o.value).map(|v| (o.name.clone(), v.clone())))
             .collect();
 
         Ok(WorkflowResult {
@@ -456,213 +427,229 @@ impl WorkflowExecutor {
     ) -> BoxFuture<'a, Result<StepResult>> {
         async move {
             let start = std::time::Instant::now();
-            let step_id = step.get_id().map(String::from).unwrap_or_else(|| Uuid::new_v4().to_string());
+            let step_id =
+                step.get_id().map(String::from).unwrap_or_else(|| Uuid::new_v4().to_string());
 
-        match step {
-            WorkflowStep::Tool { name, args, retry, .. } => {
-                let max_attempts = retry.as_ref().map(|r| r.max_attempts).unwrap_or(1);
-                let mut last_error = None;
+            match step {
+                WorkflowStep::Tool { name, args, retry, .. } => {
+                    let max_attempts = retry.as_ref().map(|r| r.max_attempts).unwrap_or(1);
+                    let mut last_error = None;
 
-                for attempt in 0..max_attempts {
-                    if attempt > 0 {
-                        let delay = retry.as_ref().map(|r| {
-                            if r.exponential_backoff {
-                                r.delay_secs * (1 << attempt.min(5))
-                            } else {
-                                r.delay_secs
+                    for attempt in 0..max_attempts {
+                        if attempt > 0 {
+                            let delay = retry
+                                .as_ref()
+                                .map(|r| {
+                                    if r.exponential_backoff {
+                                        r.delay_secs * (1 << attempt.min(5))
+                                    } else {
+                                        r.delay_secs
+                                    }
+                                })
+                                .unwrap_or(1);
+                            tokio::time::sleep(std::time::Duration::from_secs(delay)).await;
+                        }
+
+                        match self.tool_registry.execute(name, args.clone()).await {
+                            Ok(result) => {
+                                return Ok(StepResult {
+                                    step_id,
+                                    success: result.success,
+                                    output: serde_json::json!({"output": result.output}),
+                                    duration_ms: start.elapsed().as_millis() as u64,
+                                    error: result.error,
+                                });
                             }
-                        }).unwrap_or(1);
-                        tokio::time::sleep(std::time::Duration::from_secs(delay)).await;
-                    }
-
-                    match self.tool_registry.execute(name, args.clone()).await {
-                        Ok(result) => {
-                            return Ok(StepResult {
-                                step_id,
-                                success: result.success,
-                                output: serde_json::json!({"output": result.output}),
-                                duration_ms: start.elapsed().as_millis() as u64,
-                                error: result.error,
-                            });
-                        }
-                        Err(e) => {
-                            last_error = Some(e.to_string());
+                            Err(e) => {
+                                last_error = Some(e.to_string());
+                            }
                         }
                     }
-                }
 
-                Ok(StepResult {
-                    step_id,
-                    success: false,
-                    output: serde_json::Value::Null,
-                    duration_ms: start.elapsed().as_millis() as u64,
-                    error: last_error,
-                })
-            }
-
-            WorkflowStep::Agent { name, query, timeout_secs, .. } => {
-                let agent = self.agent_registry.get(name).ok_or_else(|| {
-                    theasus_core::TheasusError::Other(format!("Agent not found: {}", name))
-                })?;
-
-                let agent_context = AgentContext::new(context.cwd.clone(), self.tool_registry.clone());
-
-                let result = if let Some(timeout) = timeout_secs {
-                    tokio::time::timeout(
-                        std::time::Duration::from_secs(*timeout),
-                        agent.execute(query, &agent_context),
-                    )
-                    .await
-                    .map_err(|_| theasus_core::TheasusError::Other("Agent timeout".to_string()))?
-                } else {
-                    agent.execute(query, &agent_context).await
-                };
-
-                match result {
-                    Ok(agent_result) => Ok(StepResult {
-                        step_id,
-                        success: agent_result.success,
-                        output: serde_json::json!({"output": agent_result.output}),
-                        duration_ms: start.elapsed().as_millis() as u64,
-                        error: if agent_result.success { None } else { Some(agent_result.output) },
-                    }),
-                    Err(e) => Ok(StepResult {
+                    Ok(StepResult {
                         step_id,
                         success: false,
                         output: serde_json::Value::Null,
                         duration_ms: start.elapsed().as_millis() as u64,
-                        error: Some(e.to_string()),
-                    }),
+                        error: last_error,
+                    })
                 }
-            }
 
-            WorkflowStep::Condition { condition, then, else_step, .. } => {
-                let result = if context.evaluate_condition(condition) {
-                    self.execute_step(then, context).await?
-                } else if let Some(else_s) = else_step {
-                    self.execute_step(else_s, context).await?
-                } else {
-                    StepResult {
-                        step_id: step_id.clone(),
-                        success: true,
-                        output: serde_json::json!({"skipped": true}),
-                        duration_ms: start.elapsed().as_millis() as u64,
-                        error: None,
-                    }
-                };
-                Ok(result)
-            }
+                WorkflowStep::Agent { name, query, timeout_secs, .. } => {
+                    let agent = self.agent_registry.get(name).ok_or_else(|| {
+                        theasus_core::TheasusError::Other(format!("Agent not found: {}", name))
+                    })?;
 
-            WorkflowStep::Parallel { steps, fail_fast, .. } => {
-                let futures: Vec<_> = steps.iter().map(|s| {
-                    let mut ctx = context.clone();
-                    async move { self.execute_step(s, &mut ctx).await }
-                }).collect();
+                    let agent_context =
+                        AgentContext::new(context.cwd.clone(), self.tool_registry.clone());
 
-                let results = join_all(futures).await;
-                let mut all_success = true;
-                let mut outputs = vec![];
+                    let result = if let Some(timeout) = timeout_secs {
+                        tokio::time::timeout(
+                            std::time::Duration::from_secs(*timeout),
+                            agent.execute(query, &agent_context),
+                        )
+                        .await
+                        .map_err(|_| {
+                            theasus_core::TheasusError::Other("Agent timeout".to_string())
+                        })?
+                    } else {
+                        agent.execute(query, &agent_context).await
+                    };
 
-                for result in results {
                     match result {
-                        Ok(r) => {
-                            if !r.success {
+                        Ok(agent_result) => Ok(StepResult {
+                            step_id,
+                            success: agent_result.success,
+                            output: serde_json::json!({"output": agent_result.output}),
+                            duration_ms: start.elapsed().as_millis() as u64,
+                            error: if agent_result.success {
+                                None
+                            } else {
+                                Some(agent_result.output)
+                            },
+                        }),
+                        Err(e) => Ok(StepResult {
+                            step_id,
+                            success: false,
+                            output: serde_json::Value::Null,
+                            duration_ms: start.elapsed().as_millis() as u64,
+                            error: Some(e.to_string()),
+                        }),
+                    }
+                }
+
+                WorkflowStep::Condition { condition, then, else_step, .. } => {
+                    let result = if context.evaluate_condition(condition) {
+                        self.execute_step(then, context).await?
+                    } else if let Some(else_s) = else_step {
+                        self.execute_step(else_s, context).await?
+                    } else {
+                        StepResult {
+                            step_id: step_id.clone(),
+                            success: true,
+                            output: serde_json::json!({"skipped": true}),
+                            duration_ms: start.elapsed().as_millis() as u64,
+                            error: None,
+                        }
+                    };
+                    Ok(result)
+                }
+
+                WorkflowStep::Parallel { steps, fail_fast, .. } => {
+                    let futures: Vec<_> = steps
+                        .iter()
+                        .map(|s| {
+                            let mut ctx = context.clone();
+                            async move { self.execute_step(s, &mut ctx).await }
+                        })
+                        .collect();
+
+                    let results = join_all(futures).await;
+                    let mut all_success = true;
+                    let mut outputs = vec![];
+
+                    for result in results {
+                        match result {
+                            Ok(r) => {
+                                if !r.success {
+                                    all_success = false;
+                                    if *fail_fast {
+                                        break;
+                                    }
+                                }
+                                outputs.push(r);
+                            }
+                            Err(e) => {
                                 all_success = false;
+                                outputs.push(StepResult {
+                                    step_id: "parallel_step".to_string(),
+                                    success: false,
+                                    output: serde_json::Value::Null,
+                                    duration_ms: 0,
+                                    error: Some(e.to_string()),
+                                });
                                 if *fail_fast {
                                     break;
                                 }
                             }
-                            outputs.push(r);
                         }
-                        Err(e) => {
+                    }
+
+                    Ok(StepResult {
+                        step_id,
+                        success: all_success,
+                        output: serde_json::to_value(&outputs).unwrap_or_default(),
+                        duration_ms: start.elapsed().as_millis() as u64,
+                        error: None,
+                    })
+                }
+
+                WorkflowStep::Loop { items, item_var, step: loop_step, .. } => {
+                    let items_val =
+                        context.get_var(items).cloned().unwrap_or(serde_json::Value::Array(vec![]));
+                    let items_array = items_val.as_array().cloned().unwrap_or_default();
+
+                    let mut all_success = true;
+                    let mut outputs = vec![];
+
+                    for item in items_array {
+                        context.set_var(item_var.clone(), item);
+                        let result = self.execute_step(loop_step, context).await?;
+                        if !result.success {
                             all_success = false;
-                            outputs.push(StepResult {
-                                step_id: "parallel_step".to_string(),
-                                success: false,
-                                output: serde_json::Value::Null,
-                                duration_ms: 0,
-                                error: Some(e.to_string()),
-                            });
-                            if *fail_fast {
-                                break;
-                            }
                         }
+                        outputs.push(result);
                     }
+
+                    Ok(StepResult {
+                        step_id,
+                        success: all_success,
+                        output: serde_json::to_value(&outputs).unwrap_or_default(),
+                        duration_ms: start.elapsed().as_millis() as u64,
+                        error: None,
+                    })
                 }
 
-                Ok(StepResult {
-                    step_id,
-                    success: all_success,
-                    output: serde_json::to_value(&outputs).unwrap_or_default(),
-                    duration_ms: start.elapsed().as_millis() as u64,
-                    error: None,
-                })
-            }
+                WorkflowStep::SetVariable { name, value } => {
+                    context.set_var(name.clone(), value.clone());
+                    Ok(StepResult {
+                        step_id,
+                        success: true,
+                        output: value.clone(),
+                        duration_ms: start.elapsed().as_millis() as u64,
+                        error: None,
+                    })
+                }
 
-            WorkflowStep::Loop { items, item_var, step: loop_step, .. } => {
-                let items_val = context.get_var(items).cloned().unwrap_or(serde_json::Value::Array(vec![]));
-                let items_array = items_val.as_array().cloned().unwrap_or_default();
-
-                let mut all_success = true;
-                let mut outputs = vec![];
-
-                for item in items_array {
-                    context.set_var(item_var.clone(), item);
-                    let result = self.execute_step(loop_step, context).await?;
-                    if !result.success {
-                        all_success = false;
+                WorkflowStep::Log { message, level } => {
+                    match level {
+                        LogLevel::Debug => tracing::debug!("{}", message),
+                        LogLevel::Info => tracing::info!("{}", message),
+                        LogLevel::Warn => tracing::warn!("{}", message),
+                        LogLevel::Error => tracing::error!("{}", message),
                     }
-                    outputs.push(result);
+                    Ok(StepResult {
+                        step_id,
+                        success: true,
+                        output: serde_json::json!({"message": message}),
+                        duration_ms: start.elapsed().as_millis() as u64,
+                        error: None,
+                    })
                 }
 
-                Ok(StepResult {
-                    step_id,
-                    success: all_success,
-                    output: serde_json::to_value(&outputs).unwrap_or_default(),
-                    duration_ms: start.elapsed().as_millis() as u64,
-                    error: None,
-                })
-            }
-
-            WorkflowStep::SetVariable { name, value } => {
-                context.set_var(name.clone(), value.clone());
-                Ok(StepResult {
-                    step_id,
-                    success: true,
-                    output: value.clone(),
-                    duration_ms: start.elapsed().as_millis() as u64,
-                    error: None,
-                })
-            }
-
-            WorkflowStep::Log { message, level } => {
-                match level {
-                    LogLevel::Debug => tracing::debug!("{}", message),
-                    LogLevel::Info => tracing::info!("{}", message),
-                    LogLevel::Warn => tracing::warn!("{}", message),
-                    LogLevel::Error => tracing::error!("{}", message),
+                WorkflowStep::Delay { seconds } => {
+                    tokio::time::sleep(std::time::Duration::from_secs(*seconds)).await;
+                    Ok(StepResult {
+                        step_id,
+                        success: true,
+                        output: serde_json::json!({"delayed_seconds": seconds}),
+                        duration_ms: start.elapsed().as_millis() as u64,
+                        error: None,
+                    })
                 }
-                Ok(StepResult {
-                    step_id,
-                    success: true,
-                    output: serde_json::json!({"message": message}),
-                    duration_ms: start.elapsed().as_millis() as u64,
-                    error: None,
-                })
-            }
-
-            WorkflowStep::Delay { seconds } => {
-                tokio::time::sleep(std::time::Duration::from_secs(*seconds)).await;
-                Ok(StepResult {
-                    step_id,
-                    success: true,
-                    output: serde_json::json!({"delayed_seconds": seconds}),
-                    duration_ms: start.elapsed().as_millis() as u64,
-                    error: None,
-                })
             }
         }
-        }.boxed()
+        .boxed()
     }
 }
 
@@ -676,9 +663,7 @@ pub struct WorkflowRegistry {
 
 impl WorkflowRegistry {
     pub fn new() -> Self {
-        Self {
-            workflows: Arc::new(RwLock::new(HashMap::new())),
-        }
+        Self { workflows: Arc::new(RwLock::new(HashMap::new())) }
     }
 
     pub async fn register(&self, workflow: Workflow) {
@@ -781,10 +766,7 @@ steps:
     fn test_workflow_builder() {
         let workflow = Workflow::new("my-workflow")
             .with_description("Test workflow")
-            .add_step(WorkflowStep::Log {
-                message: "Starting".to_string(),
-                level: LogLevel::Info,
-            });
+            .add_step(WorkflowStep::Log { message: "Starting".to_string(), level: LogLevel::Info });
 
         assert_eq!(workflow.name, "my-workflow");
         assert_eq!(workflow.steps.len(), 1);
@@ -792,8 +774,7 @@ steps:
 
     #[test]
     fn test_workflow_context() {
-        let mut context = WorkflowContext::new()
-            .with_input("foo", serde_json::json!("bar"));
+        let mut context = WorkflowContext::new().with_input("foo", serde_json::json!("bar"));
 
         assert_eq!(context.get_var("foo"), Some(&serde_json::json!("bar")));
 

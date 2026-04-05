@@ -124,18 +124,15 @@ pub fn render_markdown_line<'a>(text: &'a str, base_color: Color, code_color: Co
         .into_iter()
         .map(|seg| match seg {
             MarkdownSegment::Text(s) => Span::styled(s, Style::default().fg(base_color)),
-            MarkdownSegment::Bold(s) => Span::styled(
-                s,
-                Style::default().fg(base_color).add_modifier(Modifier::BOLD),
-            ),
-            MarkdownSegment::Code(s) => Span::styled(
-                format!("`{}`", s),
-                Style::default().fg(code_color),
-            ),
-            MarkdownSegment::CodeBlock { content, .. } => Span::styled(
-                content,
-                Style::default().fg(code_color),
-            ),
+            MarkdownSegment::Bold(s) => {
+                Span::styled(s, Style::default().fg(base_color).add_modifier(Modifier::BOLD))
+            }
+            MarkdownSegment::Code(s) => {
+                Span::styled(format!("`{}`", s), Style::default().fg(code_color))
+            }
+            MarkdownSegment::CodeBlock { content, .. } => {
+                Span::styled(content, Style::default().fg(code_color))
+            }
         })
         .collect();
     Line::from(spans)
@@ -149,7 +146,8 @@ pub fn is_code_block_start(line: &str) -> bool {
 #[allow(dead_code)]
 pub fn is_code_block_end(line: &str) -> bool {
     let trimmed = line.trim();
-    trimmed == "```" || (trimmed.starts_with("```") && trimmed.len() > 3 && !trimmed[3..].contains('`'))
+    trimmed == "```"
+        || (trimmed.starts_with("```") && trimmed.len() > 3 && !trimmed[3..].contains('`'))
 }
 
 #[cfg(test)]

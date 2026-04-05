@@ -33,11 +33,8 @@ impl GrepTool {
 
         for (line_num, line) in content.lines().enumerate() {
             if pattern.is_match(line) {
-                let prefix = if line_number {
-                    format!("{}: ", line_num + 1)
-                } else {
-                    String::new()
-                };
+                let prefix =
+                    if line_number { format!("{}: ", line_num + 1) } else { String::new() };
 
                 if files_with_matches {
                     results.push(path.display().to_string());
@@ -140,13 +137,7 @@ impl Tool for GrepTool {
 
         if search_path.is_file() {
             let results = self
-                .grep_file(
-                    &regex,
-                    &search_path,
-                    files_with_matches,
-                    line_number,
-                    context_lines,
-                )
+                .grep_file(&regex, &search_path, files_with_matches, line_number, context_lines)
                 .await?;
             all_results.extend(results);
         } else if search_path.is_dir() {
@@ -155,13 +146,7 @@ impl Tool for GrepTool {
                 let path = entry.path();
                 if path.is_file() {
                     if let Ok(results) = self
-                        .grep_file(
-                            &regex,
-                            &path,
-                            files_with_matches,
-                            line_number,
-                            context_lines,
-                        )
+                        .grep_file(&regex, &path, files_with_matches, line_number, context_lines)
                         .await
                     {
                         if !results.is_empty() {
@@ -175,11 +160,7 @@ impl Tool for GrepTool {
         Ok(ToolResult {
             success: !all_results.is_empty(),
             output: all_results.join("\n"),
-            error: if all_results.is_empty() {
-                Some("No matches found".to_string())
-            } else {
-                None
-            },
+            error: if all_results.is_empty() { Some("No matches found".to_string()) } else { None },
         })
     }
 }

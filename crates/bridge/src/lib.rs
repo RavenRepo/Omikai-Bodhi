@@ -13,9 +13,7 @@ use theasus_core::Result;
 use tokio::net::TcpListener;
 use tokio::sync::{mpsc, Mutex, RwLock};
 use tokio_tungstenite::{
-    accept_async, connect_async,
-    tungstenite::Message as WsMessage,
-    MaybeTlsStream, WebSocketStream,
+    accept_async, connect_async, tungstenite::Message as WsMessage, MaybeTlsStream, WebSocketStream,
 };
 use uuid::Uuid;
 
@@ -49,12 +47,7 @@ pub struct WebSocketTransport {
 
 impl WebSocketTransport {
     pub fn new(url: impl Into<String>) -> Self {
-        Self {
-            url: url.into(),
-            connected: false,
-            write: None,
-            read: None,
-        }
+        Self { url: url.into(), connected: false, write: None, read: None }
     }
 }
 
@@ -75,14 +68,9 @@ impl Transport for WebSocketTransport {
     }
 
     async fn send(&self, message: BridgeMessage) -> std::result::Result<(), BridgeError> {
-        let write = self
-            .write
-            .as_ref()
-            .ok_or(BridgeError::NotConnected)?;
+        let write = self.write.as_ref().ok_or(BridgeError::NotConnected)?;
 
-        let ws_msg = message
-            .to_ws_message()
-            .map_err(|e| BridgeError::SendFailed(e.to_string()))?;
+        let ws_msg = message.to_ws_message().map_err(|e| BridgeError::SendFailed(e.to_string()))?;
 
         write
             .lock()
@@ -95,10 +83,7 @@ impl Transport for WebSocketTransport {
     }
 
     async fn receive(&mut self) -> std::result::Result<BridgeMessage, BridgeError> {
-        let read = self
-            .read
-            .as_ref()
-            .ok_or(BridgeError::NotConnected)?;
+        let read = self.read.as_ref().ok_or(BridgeError::NotConnected)?;
 
         let msg = read
             .lock()
@@ -108,8 +93,7 @@ impl Transport for WebSocketTransport {
             .ok_or(BridgeError::ConnectionClosed)?
             .map_err(|e| BridgeError::ReceiveFailed(e.to_string()))?;
 
-        BridgeMessage::from_ws_message(msg)
-            .map_err(|e| BridgeError::InvalidMessage(e.to_string()))
+        BridgeMessage::from_ws_message(msg).map_err(|e| BridgeError::InvalidMessage(e.to_string()))
     }
 
     async fn disconnect(&mut self) -> std::result::Result<(), BridgeError> {
@@ -146,23 +130,13 @@ struct JwtClaims {
 
 impl JwtAuth {
     pub fn new(secret: impl Into<String>, expiry_secs: u64) -> Self {
-        Self {
-            secret: secret.into(),
-            expiry_secs,
-        }
+        Self { secret: secret.into(), expiry_secs }
     }
 
     pub fn generate_token(&self, session_id: Uuid) -> String {
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
 
-        let claims = JwtClaims {
-            session_id,
-            exp: now + self.expiry_secs,
-            iat: now,
-        };
+        let claims = JwtClaims { session_id, exp: now + self.expiry_secs, iat: now };
 
         let claims_json = serde_json::to_string(&claims).unwrap();
         let header = r#"{"alg":"HS256","typ":"JWT"}"#;
@@ -197,16 +171,12 @@ impl JwtAuth {
         }
 
         // Decode claims
-        let claims_bytes = base64_decode(claims_b64)
-            .map_err(|_| BridgeError::InvalidToken)?;
-        let claims: JwtClaims = serde_json::from_slice(&claims_bytes)
-            .map_err(|_| BridgeError::InvalidToken)?;
+        let claims_bytes = base64_decode(claims_b64).map_err(|_| BridgeError::InvalidToken)?;
+        let claims: JwtClaims =
+            serde_json::from_slice(&claims_bytes).map_err(|_| BridgeError::InvalidToken)?;
 
         // Check expiry
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
 
         if now >= claims.exp {
             return Err(BridgeError::TokenExpired);
@@ -243,14 +213,12 @@ fn base64_encode(data: &[u8]) -> String {
 
 fn base64_decode(data: &str) -> std::result::Result<Vec<u8>, ()> {
     const DECODE_TABLE: [i8; 128] = [
-        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 62, -1, -1,
-        52, 53, 54, 55, 56, 57, 58, 59, 60, 61, -1, -1, -1, -1, -1, -1,
-        -1,  0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14,
-        15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, -1, -1, -1, -1, 63,
-        -1, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40,
-        41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, -1, -1, -1, -1, -1,
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 62,
+        -1, -1, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, -1, -1, -1, -1, -1, -1, -1, 0, 1, 2, 3, 4,
+        5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, -1, -1, -1,
+        -1, 63, -1, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45,
+        46, 47, 48, 49, 50, 51, -1, -1, -1, -1, -1,
     ];
 
     let bytes: Vec<u8> = data.bytes().collect();
@@ -302,7 +270,8 @@ fn simple_hmac(message: &str, key: &str) -> Vec<u8> {
         hash = hash.wrapping_add((b as u64).wrapping_mul((i as u64).wrapping_add(1)));
     }
     for (i, b) in key.bytes().enumerate() {
-        hash = hash.wrapping_mul(31).wrapping_add((b as u64).wrapping_mul((i as u64).wrapping_add(1)));
+        hash =
+            hash.wrapping_mul(31).wrapping_add((b as u64).wrapping_mul((i as u64).wrapping_add(1)));
     }
     hash.to_le_bytes().to_vec()
 }
@@ -321,11 +290,7 @@ pub struct Attachment {
 
 impl Attachment {
     pub fn new(name: impl Into<String>, mime_type: impl Into<String>, data: Vec<u8>) -> Self {
-        Self {
-            name: name.into(),
-            mime_type: mime_type.into(),
-            data,
-        }
+        Self { name: name.into(), mime_type: mime_type.into(), data }
     }
 
     pub fn text(name: impl Into<String>, content: impl Into<String>) -> Self {
@@ -333,11 +298,7 @@ impl Attachment {
     }
 
     pub fn json(name: impl Into<String>, value: &serde_json::Value) -> Self {
-        Self::new(
-            name,
-            "application/json",
-            serde_json::to_vec(value).unwrap_or_default(),
-        )
+        Self::new(name, "application/json", serde_json::to_vec(value).unwrap_or_default())
     }
 }
 
@@ -455,10 +416,7 @@ impl BridgeMessage {
     }
 
     pub fn error(message: impl Into<String>) -> Self {
-        Self::new(
-            BridgeMessageType::Error,
-            serde_json::json!({ "error": message.into() }),
-        )
+        Self::new(BridgeMessageType::Error, serde_json::json!({ "error": message.into() }))
     }
 
     pub fn tool_call(name: &str, input: serde_json::Value) -> Self {
@@ -499,16 +457,15 @@ impl BridgeMessage {
     }
 
     pub fn add_attachment(&mut self, attachment: Attachment) {
-        self.attachments
-            .get_or_insert_with(Vec::new)
-            .push(attachment);
+        self.attachments.get_or_insert_with(Vec::new).push(attachment);
     }
 
-    pub fn attachment(name: impl Into<String>, mime_type: impl Into<String>, data: Vec<u8>) -> Self {
-        let mut msg = Self::new(
-            BridgeMessageType::Attachment,
-            serde_json::json!({}),
-        );
+    pub fn attachment(
+        name: impl Into<String>,
+        mime_type: impl Into<String>,
+        data: Vec<u8>,
+    ) -> Self {
+        let mut msg = Self::new(BridgeMessageType::Attachment, serde_json::json!({}));
         msg.attachments = Some(vec![Attachment::new(name, mime_type, data)]);
         msg
     }
@@ -528,9 +485,9 @@ impl BridgeMessage {
                 let message: BridgeMessage = serde_json::from_slice(&data)?;
                 Ok(message)
             }
-            _ => Err(theasus_core::TheasusError::Other(
-                "Invalid WebSocket message type".to_string(),
-            )),
+            _ => {
+                Err(theasus_core::TheasusError::Other("Invalid WebSocket message type".to_string()))
+            }
         }
     }
 }
@@ -665,9 +622,7 @@ impl BridgeConnection {
 
     pub async fn reconnect(&mut self) -> Result<()> {
         if !self.config.reconnect {
-            return Err(theasus_core::TheasusError::Other(
-                "Reconnection disabled".to_string(),
-            ));
+            return Err(theasus_core::TheasusError::Other("Reconnection disabled".to_string()));
         }
 
         while self.reconnect_attempts < self.config.max_reconnect_attempts {
@@ -693,9 +648,7 @@ impl BridgeConnection {
         }
 
         self.state = ConnectionState::Failed;
-        Err(theasus_core::TheasusError::Other(
-            "Max reconnection attempts exceeded".to_string(),
-        ))
+        Err(theasus_core::TheasusError::Other("Max reconnection attempts exceeded".to_string()))
     }
 
     pub async fn disconnect(&mut self) -> Result<()> {
@@ -708,36 +661,33 @@ impl BridgeConnection {
 
     pub async fn send(&mut self, message: BridgeMessage) -> Result<()> {
         if self.state != ConnectionState::Connected {
-            return Err(theasus_core::TheasusError::Other(
-                "Not connected".to_string(),
-            ));
+            return Err(theasus_core::TheasusError::Other("Not connected".to_string()));
         }
 
-        let tx = self.tx.as_ref().ok_or_else(|| {
-            theasus_core::TheasusError::Other("No sender available".to_string())
-        })?;
+        let tx = self
+            .tx
+            .as_ref()
+            .ok_or_else(|| theasus_core::TheasusError::Other("No sender available".to_string()))?;
 
-        tx.send(message).await.map_err(|e| {
-            theasus_core::TheasusError::Other(format!("Send failed: {}", e))
-        })?;
+        tx.send(message)
+            .await
+            .map_err(|e| theasus_core::TheasusError::Other(format!("Send failed: {}", e)))?;
 
         Ok(())
     }
 
     pub async fn receive(&mut self) -> Result<BridgeMessage> {
         if self.state != ConnectionState::Connected {
-            return Err(theasus_core::TheasusError::Other(
-                "Not connected".to_string(),
-            ));
+            return Err(theasus_core::TheasusError::Other("Not connected".to_string()));
         }
 
         let rx = self.rx.as_mut().ok_or_else(|| {
             theasus_core::TheasusError::Other("No receiver available".to_string())
         })?;
 
-        rx.recv().await.ok_or_else(|| {
-            theasus_core::TheasusError::Other("Channel closed".to_string())
-        })
+        rx.recv()
+            .await
+            .ok_or_else(|| theasus_core::TheasusError::Other("Channel closed".to_string()))
     }
 
     pub fn is_connected(&self) -> bool {
@@ -780,9 +730,9 @@ impl BridgeServer {
 
     pub async fn start(&mut self) -> Result<()> {
         let addr = format!("127.0.0.1:{}", self.port);
-        let listener = TcpListener::bind(&addr).await.map_err(|e| {
-            theasus_core::TheasusError::Other(format!("Failed to bind: {}", e))
-        })?;
+        let listener = TcpListener::bind(&addr)
+            .await
+            .map_err(|e| theasus_core::TheasusError::Other(format!("Failed to bind: {}", e)))?;
 
         tracing::info!("Bridge server listening on {}", addr);
 
@@ -902,11 +852,8 @@ impl BridgeServer {
             BridgeMessageType::ToolCall => {
                 if session.authenticated {
                     // TODO: Route to tool executor
-                    let response = BridgeMessage::tool_result(
-                        msg.id,
-                        true,
-                        "Tool execution placeholder",
-                    );
+                    let response =
+                        BridgeMessage::tool_result(msg.id, true, "Tool execution placeholder");
                     let _ = session.tx.send(response).await;
                 }
             }
@@ -950,10 +897,7 @@ pub struct BridgeManager {
 
 impl BridgeManager {
     pub fn new() -> Self {
-        Self {
-            connections: HashMap::new(),
-            server: None,
-        }
+        Self { connections: HashMap::new(), server: None }
     }
 
     pub async fn connect(&mut self, config: BridgeConfig) -> Result<Uuid> {
@@ -1241,10 +1185,8 @@ mod tests {
 
     #[test]
     fn test_message_with_attachments() {
-        let mut msg = BridgeMessage::new(
-            BridgeMessageType::Message,
-            serde_json::json!({"content": "Hello"}),
-        );
+        let mut msg =
+            BridgeMessage::new(BridgeMessageType::Message, serde_json::json!({"content": "Hello"}));
 
         msg.add_attachment(Attachment::text("file1.txt", "Content 1"));
         msg.add_attachment(Attachment::text("file2.txt", "Content 2"));
@@ -1262,14 +1204,12 @@ mod tests {
 
     #[test]
     fn test_message_with_attachments_builder() {
-        let msg = BridgeMessage::new(
-            BridgeMessageType::Message,
-            serde_json::json!({"content": "Hello"}),
-        )
-        .with_attachments(vec![
-            Attachment::text("a.txt", "A"),
-            Attachment::text("b.txt", "B"),
-        ]);
+        let msg =
+            BridgeMessage::new(BridgeMessageType::Message, serde_json::json!({"content": "Hello"}))
+                .with_attachments(vec![
+                    Attachment::text("a.txt", "A"),
+                    Attachment::text("b.txt", "B"),
+                ]);
 
         assert_eq!(msg.attachments.as_ref().unwrap().len(), 2);
     }

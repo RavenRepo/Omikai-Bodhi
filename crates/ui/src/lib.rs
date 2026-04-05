@@ -400,9 +400,7 @@ fn handle_command(app: &mut App, input: &str) {
                     }
                 }
             } else {
-                app.add_message(MessageItem::system(
-                    "Usage: /theme <dark|light>".to_string(),
-                ));
+                app.add_message(MessageItem::system("Usage: /theme <dark|light>".to_string()));
             }
         }
         _ => {
@@ -486,11 +484,8 @@ fn ui(frame: &mut Frame, app: &mut App) {
     frame.set_cursor_position((input_col.min(chunks[2].right() - 1), input_row));
 
     // Status bar with progress indicator
-    let progress_text = if app.progress.active {
-        app.progress.render()
-    } else {
-        app.status.clone()
-    };
+    let progress_text =
+        if app.progress.active { app.progress.render() } else { app.status.clone() };
 
     let status_text = format!(
         " Model: {} | Messages: {} | {} | [{}] | Ctrl+C quit ",
