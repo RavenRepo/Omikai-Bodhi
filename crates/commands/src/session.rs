@@ -39,7 +39,9 @@ impl Command for SessionsCommand {
     async fn execute(&self, _args: &str, _context: &CommandContext) -> Result<CommandResult> {
         let store = match SessionStore::open_default() {
             Ok(s) => s,
-            Err(e) => return Ok(CommandResult::error(format!("Failed to open session store: {}", e))),
+            Err(e) => {
+                return Ok(CommandResult::error(format!("Failed to open session store: {}", e)))
+            }
         };
 
         let sessions = match store.list_sessions() {
@@ -101,7 +103,9 @@ impl Command for SessionCommand {
     }
 
     fn args_description(&self) -> Option<&str> {
-        Some("<command> [args] - Commands: new [name], resume <id>, delete <id>, rename <id> <name>")
+        Some(
+            "<command> [args] - Commands: new [name], resume <id>, delete <id>, rename <id> <name>",
+        )
     }
 
     async fn execute(&self, args: &str, context: &CommandContext) -> Result<CommandResult> {
@@ -115,22 +119,20 @@ impl Command for SessionCommand {
                  - resume <id|name>     Resume a saved session\n\
                  - delete <id|name>     Delete a session\n\
                  - rename <id> <name>   Rename a session\n\
-                 - save                 Save current session"
+                 - save                 Save current session",
             ));
         }
 
         let store = match SessionStore::open_default() {
             Ok(s) => s,
-            Err(e) => return Ok(CommandResult::error(format!("Failed to open session store: {}", e))),
+            Err(e) => {
+                return Ok(CommandResult::error(format!("Failed to open session store: {}", e)))
+            }
         };
 
         match parts[0] {
             "new" => {
-                let name = if parts.len() > 1 {
-                    Some(parts[1..].join(" "))
-                } else {
-                    None
-                };
+                let name = if parts.len() > 1 { Some(parts[1..].join(" ")) } else { None };
 
                 match store.create_session(name.as_deref(), "gpt-4o") {
                     Ok(session) => Ok(CommandResult::success(format!(
@@ -161,7 +163,12 @@ impl Command for SessionCommand {
                             || s.id.to_string().starts_with(identifier)
                     }) {
                         Some(s) => s.id,
-                        None => return Ok(CommandResult::error(format!("Session not found: {}", identifier))),
+                        None => {
+                            return Ok(CommandResult::error(format!(
+                                "Session not found: {}",
+                                identifier
+                            )))
+                        }
                     }
                 };
 
@@ -192,12 +199,19 @@ impl Command for SessionCommand {
                             || s.id.to_string().starts_with(identifier)
                     }) {
                         Some(s) => s.id,
-                        None => return Ok(CommandResult::error(format!("Session not found: {}", identifier))),
+                        None => {
+                            return Ok(CommandResult::error(format!(
+                                "Session not found: {}",
+                                identifier
+                            )))
+                        }
                     }
                 };
 
                 match store.delete_session(session_id) {
-                    Ok(()) => Ok(CommandResult::success(format!("Deleted session: {}", session_id))),
+                    Ok(()) => {
+                        Ok(CommandResult::success(format!("Deleted session: {}", session_id)))
+                    }
                     Err(e) => Ok(CommandResult::error(format!("Failed to delete session: {}", e))),
                 }
             }
@@ -220,7 +234,12 @@ impl Command for SessionCommand {
                             || s.id.to_string().starts_with(identifier)
                     }) {
                         Some(s) => s.id,
-                        None => return Ok(CommandResult::error(format!("Session not found: {}", identifier))),
+                        None => {
+                            return Ok(CommandResult::error(format!(
+                                "Session not found: {}",
+                                identifier
+                            )))
+                        }
                     }
                 };
 
@@ -235,10 +254,7 @@ impl Command for SessionCommand {
 
             "save" => {
                 // For now, just acknowledge - real save would need app state integration
-                Ok(CommandResult::success(format!(
-                    "Session {} saved.",
-                    context.session_id
-                )))
+                Ok(CommandResult::success(format!("Session {} saved.", context.session_id)))
             }
 
             _ => Ok(CommandResult::error(format!(
@@ -255,10 +271,7 @@ mod tests {
     use std::path::PathBuf;
 
     fn test_context() -> CommandContext {
-        CommandContext {
-            cwd: PathBuf::from("/tmp"),
-            session_id: Uuid::new_v4(),
-        }
+        CommandContext { cwd: PathBuf::from("/tmp"), session_id: Uuid::new_v4() }
     }
 
     #[tokio::test]

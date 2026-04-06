@@ -59,8 +59,7 @@ fn test_tool_calls_persistence() {
     let session = store.create_session(None, "gpt-4o").unwrap();
 
     let tool_calls_json = r#"[{"name": "file_read", "arguments": {"path": "test.txt"}}]"#;
-    let msg = SessionMessage::assistant("Let me read that file.")
-        .with_tool_calls(tool_calls_json);
+    let msg = SessionMessage::assistant("Let me read that file.").with_tool_calls(tool_calls_json);
 
     store.add_message(session.id, &msg).unwrap();
 

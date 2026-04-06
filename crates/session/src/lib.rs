@@ -23,7 +23,7 @@ mod schema;
 mod session;
 mod store;
 
-pub use error::{SessionError, Result};
+pub use error::{Result, SessionError};
 pub use session::{Session, SessionMessage, SessionSummary};
 pub use store::SessionStore;
 

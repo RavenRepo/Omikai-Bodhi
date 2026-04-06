@@ -130,10 +130,7 @@ pub struct ToolCall {
 impl ToolCall {
     /// Create a new tool call.
     pub fn new(name: impl Into<String>, input: serde_json::Value) -> Self {
-        Self {
-            name: name.into(),
-            input,
-        }
+        Self { name: name.into(), input }
     }
 }
 
@@ -151,20 +148,15 @@ pub struct ToolRegistry {
 
 impl ToolRegistry {
     pub fn new() -> Self {
-        let mut registry = Self {
-            tools: HashMap::new(),
-            cache: Arc::new(ToolCache::new()),
-        };
+        let mut registry = Self { tools: HashMap::new(), cache: Arc::new(ToolCache::new()) };
         registry.register_defaults();
         registry
     }
 
     /// Create a registry with custom cache configuration.
     pub fn with_cache_config(config: CacheConfig) -> Self {
-        let mut registry = Self {
-            tools: HashMap::new(),
-            cache: Arc::new(ToolCache::with_config(config)),
-        };
+        let mut registry =
+            Self { tools: HashMap::new(), cache: Arc::new(ToolCache::with_config(config)) };
         registry.register_defaults();
         registry
     }
@@ -294,10 +286,7 @@ impl ToolRegistry {
                 async move {
                     // Check cache first
                     if let Some(cached) = cache.get(&name, &input) {
-                        return ToolCallResult {
-                            name,
-                            result: cached,
-                        };
+                        return ToolCallResult { name, result: cached };
                     }
 
                     let result = match tool {

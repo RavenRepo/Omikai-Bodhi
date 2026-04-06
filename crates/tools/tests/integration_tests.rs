@@ -2,8 +2,8 @@
 
 use std::path::PathBuf;
 use theasus_tools::{
-    BashTool, FileReadTool, FileWriteTool, GlobTool, GrepTool, Tool, ToolContext, ToolRegistry,
-    ToolCall,
+    BashTool, FileReadTool, FileWriteTool, GlobTool, GrepTool, Tool, ToolCall, ToolContext,
+    ToolRegistry,
 };
 use uuid::Uuid;
 
@@ -282,10 +282,8 @@ mod registry {
     #[tokio::test]
     async fn test_registry_execute() {
         let registry = ToolRegistry::new();
-        let result = registry
-            .execute("bash", serde_json::json!({"command": "echo test"}))
-            .await
-            .unwrap();
+        let result =
+            registry.execute("bash", serde_json::json!({"command": "echo test"})).await.unwrap();
 
         assert!(result.success);
     }
@@ -293,9 +291,7 @@ mod registry {
     #[tokio::test]
     async fn test_registry_execute_unknown_tool() {
         let registry = ToolRegistry::new();
-        let result = registry
-            .execute("unknown_tool", serde_json::json!({}))
-            .await;
+        let result = registry.execute("unknown_tool", serde_json::json!({})).await;
 
         assert!(result.is_err());
     }
@@ -336,16 +332,10 @@ mod caching {
 
         // First call - cache miss
         let input = serde_json::json!({"pattern": "*.rs"});
-        registry
-            .execute_with_context("glob", input.clone(), &context)
-            .await
-            .unwrap();
+        registry.execute_with_context("glob", input.clone(), &context).await.unwrap();
 
         // Second call - should be cache hit
-        registry
-            .execute_with_context("glob", input, &context)
-            .await
-            .unwrap();
+        registry.execute_with_context("glob", input, &context).await.unwrap();
 
         let stats = registry.cache_stats();
         assert!(stats.hits >= 1);
@@ -364,26 +354,18 @@ mod caching {
 
         // Read file (populates cache)
         let read_input = serde_json::json!({"path": file_path.to_str().unwrap()});
-        registry
-            .execute_with_context("file_read", read_input.clone(), &context)
-            .await
-            .unwrap();
+        registry.execute_with_context("file_read", read_input.clone(), &context).await.unwrap();
 
         // Write file (should invalidate cache)
         let write_input = serde_json::json!({
             "path": file_path.to_str().unwrap(),
             "content": "modified"
         });
-        registry
-            .execute_with_context("file_write", write_input, &context)
-            .await
-            .unwrap();
+        registry.execute_with_context("file_write", write_input, &context).await.unwrap();
 
         // Read again - should get fresh content
-        let result = registry
-            .execute_with_context("file_read", read_input, &context)
-            .await
-            .unwrap();
+        let result =
+            registry.execute_with_context("file_read", read_input, &context).await.unwrap();
 
         assert!(result.output.contains("modified"));
     }

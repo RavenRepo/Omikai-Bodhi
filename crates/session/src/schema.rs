@@ -38,19 +38,11 @@ pub fn init_schema(conn: &Connection) -> Result<()> {
     )?;
 
     // Set schema version if not set
-    let version: Option<i32> = conn
-        .query_row(
-            "SELECT version FROM schema_version LIMIT 1",
-            [],
-            |row| row.get(0),
-        )
-        .ok();
+    let version: Option<i32> =
+        conn.query_row("SELECT version FROM schema_version LIMIT 1", [], |row| row.get(0)).ok();
 
     if version.is_none() {
-        conn.execute(
-            "INSERT INTO schema_version (version) VALUES (?1)",
-            [SCHEMA_VERSION],
-        )?;
+        conn.execute("INSERT INTO schema_version (version) VALUES (?1)", [SCHEMA_VERSION])?;
     }
 
     Ok(())
@@ -59,11 +51,7 @@ pub fn init_schema(conn: &Connection) -> Result<()> {
 /// Run any pending migrations.
 pub fn migrate(conn: &Connection) -> Result<()> {
     let current_version: i32 = conn
-        .query_row(
-            "SELECT version FROM schema_version LIMIT 1",
-            [],
-            |row| row.get(0),
-        )
+        .query_row("SELECT version FROM schema_version LIMIT 1", [], |row| row.get(0))
         .unwrap_or(0);
 
     if current_version < SCHEMA_VERSION {
@@ -74,10 +62,7 @@ pub fn migrate(conn: &Connection) -> Result<()> {
         //     _ => {}
         // }
 
-        conn.execute(
-            "UPDATE schema_version SET version = ?1",
-            [SCHEMA_VERSION],
-        )?;
+        conn.execute("UPDATE schema_version SET version = ?1", [SCHEMA_VERSION])?;
     }
 
     Ok(())
@@ -111,9 +96,8 @@ mod tests {
         let conn = Connection::open_in_memory().unwrap();
         init_schema(&conn).unwrap();
 
-        let version: i32 = conn
-            .query_row("SELECT version FROM schema_version", [], |row| row.get(0))
-            .unwrap();
+        let version: i32 =
+            conn.query_row("SELECT version FROM schema_version", [], |row| row.get(0)).unwrap();
 
         assert_eq!(version, SCHEMA_VERSION);
     }

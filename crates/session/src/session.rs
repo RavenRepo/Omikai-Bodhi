@@ -49,9 +49,7 @@ impl Session {
 
     /// Get a display name (name or truncated ID).
     pub fn display_name(&self) -> String {
-        self.name
-            .clone()
-            .unwrap_or_else(|| format!("session-{}", &self.id.to_string()[..8]))
+        self.name.clone().unwrap_or_else(|| format!("session-{}", &self.id.to_string()[..8]))
     }
 }
 
@@ -114,9 +112,7 @@ pub struct SessionSummary {
 impl SessionSummary {
     /// Get a display name.
     pub fn display_name(&self) -> String {
-        self.name
-            .clone()
-            .unwrap_or_else(|| format!("session-{}", &self.id.to_string()[..8]))
+        self.name.clone().unwrap_or_else(|| format!("session-{}", &self.id.to_string()[..8]))
     }
 }
 

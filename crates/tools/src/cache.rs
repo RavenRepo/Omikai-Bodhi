@@ -26,10 +26,7 @@ impl Default for CacheConfig {
         tool_ttls.insert("grep".to_string(), Duration::from_secs(30));
         tool_ttls.insert("file_read".to_string(), Duration::from_secs(10));
 
-        Self {
-            max_entries: 100,
-            tool_ttls,
-        }
+        Self { max_entries: 100, tool_ttls }
     }
 }
 
@@ -71,10 +68,7 @@ impl CacheKey {
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
         input.to_string().hash(&mut hasher);
 
-        Self {
-            tool_name: tool_name.to_string(),
-            input_hash: hasher.finish(),
-        }
+        Self { tool_name: tool_name.to_string(), input_hash: hasher.finish() }
     }
 }
 
@@ -90,11 +84,7 @@ impl CachedResult {
     /// Create a new cached result.
     pub fn new(result: ToolResult, ttl: Duration) -> Self {
         let now = Instant::now();
-        Self {
-            result,
-            cached_at: now,
-            expires_at: now + ttl,
-        }
+        Self { result, cached_at: now, expires_at: now + ttl }
     }
 
     /// Check if the cached result has expired.
@@ -235,11 +225,8 @@ impl ToolCache {
             return;
         };
 
-        let expired_keys: Vec<CacheKey> = cache
-            .iter()
-            .filter(|(_, v)| v.is_expired())
-            .map(|(k, _)| k.clone())
-            .collect();
+        let expired_keys: Vec<CacheKey> =
+            cache.iter().filter(|(_, v)| v.is_expired()).map(|(k, _)| k.clone()).collect();
 
         for key in &expired_keys {
             cache.remove(key);
@@ -256,11 +243,8 @@ impl ToolCache {
             return;
         };
 
-        let keys_to_remove: Vec<CacheKey> = cache
-            .keys()
-            .filter(|k| k.tool_name == tool_name)
-            .cloned()
-            .collect();
+        let keys_to_remove: Vec<CacheKey> =
+            cache.keys().filter(|k| k.tool_name == tool_name).cloned().collect();
 
         for key in &keys_to_remove {
             cache.remove(key);
@@ -291,11 +275,7 @@ impl ToolCache {
             hits,
             misses,
             size,
-            hit_rate: if hits + misses > 0 {
-                hits as f64 / (hits + misses) as f64
-            } else {
-                0.0
-            },
+            hit_rate: if hits + misses > 0 { hits as f64 / (hits + misses) as f64 } else { 0.0 },
         }
     }
 

@@ -2,16 +2,13 @@
 
 use std::path::PathBuf;
 use theasus_commands::{
-    Command, CommandContext, CommandRegistry, HelpCommand, ClearCommand, SessionCommand,
+    ClearCommand, Command, CommandContext, CommandRegistry, HelpCommand, SessionCommand,
     SessionsCommand,
 };
 use uuid::Uuid;
 
 fn test_context() -> CommandContext {
-    CommandContext {
-        cwd: PathBuf::from("/tmp"),
-        session_id: Uuid::new_v4(),
-    }
+    CommandContext { cwd: PathBuf::from("/tmp"), session_id: Uuid::new_v4() }
 }
 
 mod registry {

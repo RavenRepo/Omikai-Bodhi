@@ -37,11 +37,12 @@ impl SessionStore {
 
     /// Open the default session store location.
     pub fn open_default() -> Result<Self> {
-        let path = Self::default_path()
-            .ok_or_else(|| SessionError::Io(std::io::Error::new(
+        let path = Self::default_path().ok_or_else(|| {
+            SessionError::Io(std::io::Error::new(
                 std::io::ErrorKind::NotFound,
                 "Could not determine config directory",
-            )))?;
+            ))
+        })?;
         Self::open(path)
     }
 
@@ -55,17 +56,13 @@ impl SessionStore {
 
     /// Get the default store path.
     pub fn default_path() -> Option<PathBuf> {
-        ProjectDirs::from("com", "omikai", "bodhi")
-            .map(|dirs| dirs.data_dir().join("sessions.db"))
+        ProjectDirs::from("com", "omikai", "bodhi").map(|dirs| dirs.data_dir().join("sessions.db"))
     }
 
     /// Create a new session.
     pub fn create_session(&self, name: Option<&str>, model: &str) -> Result<Session> {
-        let session = if let Some(n) = name {
-            Session::with_name(n, model)
-        } else {
-            Session::new(model)
-        };
+        let session =
+            if let Some(n) = name { Session::with_name(n, model) } else { Session::new(model) };
 
         self.conn.execute(
             "INSERT INTO sessions (id, name, model, created_at, updated_at, total_tokens)
@@ -256,10 +253,7 @@ impl SessionStore {
 
     /// Delete a session and all its messages.
     pub fn delete_session(&self, id: Uuid) -> Result<()> {
-        let rows = self.conn.execute(
-            "DELETE FROM sessions WHERE id = ?1",
-            [id.to_string()],
-        )?;
+        let rows = self.conn.execute("DELETE FROM sessions WHERE id = ?1", [id.to_string()])?;
 
         if rows == 0 {
             return Err(SessionError::NotFound(id.to_string()));
@@ -273,10 +267,9 @@ impl SessionStore {
     pub fn cleanup_old_sessions(&self, older_than_days: i64) -> Result<usize> {
         let cutoff = Utc::now() - chrono::Duration::days(older_than_days);
 
-        let rows = self.conn.execute(
-            "DELETE FROM sessions WHERE updated_at < ?1",
-            [cutoff.to_rfc3339()],
-        )?;
+        let rows = self
+            .conn
+            .execute("DELETE FROM sessions WHERE updated_at < ?1", [cutoff.to_rfc3339()])?;
 
         if rows > 0 {
             info!("Cleaned up {} old sessions", rows);
@@ -310,11 +303,8 @@ impl SessionStore {
 
     /// Get session count.
     pub fn session_count(&self) -> Result<i64> {
-        let count: i64 = self.conn.query_row(
-            "SELECT COUNT(*) FROM sessions",
-            [],
-            |row| row.get(0),
-        )?;
+        let count: i64 =
+            self.conn.query_row("SELECT COUNT(*) FROM sessions", [], |row| row.get(0))?;
         Ok(count)
     }
 }
