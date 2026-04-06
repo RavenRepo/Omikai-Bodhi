@@ -1,9 +1,10 @@
 [package]
 name = "theasus-language-model"
-version = "0.1.0"
-edition = "2021"
-license = "MIT"
-rust-version = "1.75"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Language model trait abstraction for Theasus"
 
 [dependencies]
 theasus-http-client = { workspace = true }

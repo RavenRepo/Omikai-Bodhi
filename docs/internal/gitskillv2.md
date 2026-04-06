@@ -9,7 +9,7 @@
 | **Domain**        | Git Operations, GitHub Issue Management, Milestone Planning, PR Review, Project Board Monitoring                                                             |
 | **Scope**         | Open Source & Agentic Development — Postiz/OpenClaw Convention Compliant                                                                                     |
 | **Last Updated**  | April 2026                                                                                                                                                   |
-| **Maintained By** | OpenClaw Mission Control                                                                                                                                     |
+| **Maintained By** | Theasus                                                                                                                                                      |
 | **Changelog**     | v2.0: Added Plan-to-Issue Pipeline, Milestone Management, Label Taxonomy, Project Board Monitoring, Assignee Enforcement, Draft PR Protocol, Escalation Path |
 
 ---
