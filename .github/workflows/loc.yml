@@ -1,0 +1,62 @@
+name: Update LOC Badge
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'crates/**/*.rs'
+      - 'src/**/*.rs'
+
+jobs:
+  update-loc:
+    name: Update Lines of Code
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Count lines of code
+        id: loc
+        run: |
+          # Count Rust source lines (excluding tests, comments approximation)
+          LOC=$(find crates -name "*.rs" -type f | xargs wc -l 2>/dev/null | tail -1 | awk '{print $1}')
+          
+          # Format as X.Xk if over 1000
+          if [ "$LOC" -ge 1000 ]; then
+            LOC_FORMATTED=$(echo "scale=1; $LOC / 1000" | bc)k
+          else
+            LOC_FORMATTED=$LOC
+          fi
+          
+          echo "loc=$LOC" >> $GITHUB_OUTPUT
+          echo "loc_formatted=$LOC_FORMATTED" >> $GITHUB_OUTPUT
+          echo "Lines of code: $LOC ($LOC_FORMATTED)"
+
+      - name: Update README badge
+        run: |
+          LOC_FORMATTED="${{ steps.loc.outputs.loc_formatted }}"
+          
+          # Update the LOC badge in README.md
+          sed -i "s/lines_of_code-[0-9.]*k*-/lines_of_code-${LOC_FORMATTED}-/" README.md
+          
+          # Check if there are changes
+          if git diff --quiet README.md; then
+            echo "No changes to README.md"
+            exit 0
+          fi
+          
+          echo "Updated LOC badge to $LOC_FORMATTED"
+
+      - name: Commit and push if changed
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          
+          if ! git diff --quiet README.md; then
+            git add README.md
+            git commit -m "docs: update LOC badge to ${{ steps.loc.outputs.loc_formatted }}"
+            git push
+          fi

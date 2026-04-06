@@ -9,7 +9,7 @@
   <img src="https://img.shields.io/badge/rust-1.75+-informational.svg" alt="rust">
   <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="license">
   <img src="https://img.shields.io/badge/status-active-success.svg" alt="status">
-  <img src="https://img.shields.io/badge/lines_of_code-8.7k-blueviolet.svg" alt="lines of code">
+  <img src="https://img.shields.io/badge/lines_of_code-20.1k-blueviolet.svg" alt="lines of code">
   <a href="https://github.com/RavenRepo/Omikai-Bodhi/stargazers">
     <img src="https://img.shields.io/github/stars/RavenRepo/Omikai-Bodhi?style=social" alt="stars">
   </a>
