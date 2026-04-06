@@ -230,7 +230,7 @@ pub struct ReasoningFramework {
     /// Domain-specific constraints that must be respected during reasoning.
     pub constraints: Vec<String>,
 
-    /// Expected output format (e.g., "FINDING: \[severity\] \[file:line\] \[desc\]").
+    /// Expected output format (e.g., `"FINDING: <severity> <file:line> <desc>"`).
     pub output_format: Option<String>,
 }
 
@@ -1319,7 +1319,7 @@ mod tests {
             ReasoningFramework {
                 approach: ReasoningApproach::ConstraintFirst,
                 constraints: vec!["Check OWASP Top 10".into()],
-                output_format: Some("FINDING: [severity] [description]".into()),
+                output_format: Some("FINDING: <severity> <description>".into()),
             },
         );
 
