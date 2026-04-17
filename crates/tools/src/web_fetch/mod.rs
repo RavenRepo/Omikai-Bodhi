@@ -2,6 +2,7 @@ use crate::{Tool, ToolContext, ToolDefinition, ToolResult};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use theasus_permissions::PermissionResult;
 
 const MAX_RESPONSE_SIZE: usize = 10 * 1024; // 10KB
 
@@ -146,6 +147,19 @@ impl Tool for WebFetchTool {
             })?;
 
         Ok(ToolResult::success(output_json))
+    }
+
+    fn check_permission(&self, input: &serde_json::Value) -> PermissionResult {
+        if let Ok(fetch_input) = serde_json::from_value::<WebFetchInput>(input.clone()) {
+            let url_lower = fetch_input.url.to_lowercase();
+            if url_lower.starts_with("http://") || url_lower.starts_with("https://") {
+                return PermissionResult::Allowed;
+            }
+            return PermissionResult::Denied {
+                reason: "Only HTTP and HTTPS URLs are allowed".to_string(),
+            };
+        }
+        PermissionResult::Allowed
     }
 }
 
